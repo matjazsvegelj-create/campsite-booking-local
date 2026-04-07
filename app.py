@@ -263,7 +263,7 @@ GROUP_SECTION_OPTIONS = [
     ("scouts", "Scouts [10 - 13]"),
     ("explorers", "Explorers [13 - 16]"),
     ("rover_scouts", "Rover Scouts [16 - 20]"),
-    ("leaders", "Leaders [> 18]"),
+    ("leaders", "Leaders [> 20]"),
     ("team", "Team [> 18]"),
 ]
 NON_SCOUT_SECTION_LABELS = {
@@ -272,8 +272,8 @@ NON_SCOUT_SECTION_LABELS = {
     "scouts": "[10 - 13]",
     "explorers": "[13 - 16]",
     "rover_scouts": "[16 - 20]",
-    "leaders": "[> 18]",
-    "team": "[> 18]",
+    "leaders": "[> 20]",
+    "team": "",
 }
 ADULT_SECTION_KEYS = {"rover_scouts", "leaders", "team"}
 COUNTRY_OPTIONS = [
@@ -2224,6 +2224,7 @@ def render_details_page(connection, params, errors=None):
     if laski_group_type == "non_scouts":
         for row in section_rows:
             row["label"] = NON_SCOUT_SECTION_LABELS.get(row["key"], row["label"])
+        section_rows = [row for row in section_rows if row["label"]]
     section_total = adult_total + child_total
     expected_guest_total = to_non_negative_int(guest_count)
 
