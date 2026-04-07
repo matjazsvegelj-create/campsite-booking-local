@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#f0e4bf"/>
+      <stop offset="100%" stop-color="#d7e6c2"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="700" fill="url(#bg)"/>
+  <circle cx="985" cy="120" r="62" fill="#f9d06b"/>
+  <path d="M0 490 L240 300 L420 470 L610 250 L840 490 L1000 350 L1200 520 L1200 700 L0 700 Z" fill="#8aa36b"/>
+  <path d="M250 560 L390 320 L530 560 Z" fill="#30543a"/>
+  <path d="M305 560 L390 400 L475 560 Z" fill="#f7efe0"/>
+  <rect x="360" y="500" width="58" height="60" fill="#30543a"/>
+  <text x="60" y="88" font-size="54" font-family="Georgia, serif" fill="#203127">Campsite photo placeholder</text>
+  <text x="60" y="140" font-size="28" font-family="Georgia, serif" fill="#203127">Upload location photos into static/galleries/&lt;location-slug&gt;/</text>
+</svg>
