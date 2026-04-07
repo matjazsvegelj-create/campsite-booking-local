@@ -502,6 +502,15 @@ def render_step_actions(back_href, continue_html):
     """
 
 
+def render_step_actions_form(back_path, continue_html):
+    return f"""
+    <div class="step-actions field-span-full">
+      <button type="submit" class="button button-secondary" formaction="{html.escape(back_path)}">Back</button>
+      {continue_html}
+    </div>
+    """
+
+
 def parse_rental_quantities(source):
     selected = []
     for item in RENTAL_ITEMS:
@@ -2188,6 +2197,9 @@ def render_details_page(connection, params, errors=None):
         or (
             key not in visible_field_names
             and not key.startswith("section_")
+            and not key.startswith("contact_person_")
+            and not key.startswith("unit_leader_")
+            and not key.startswith("international_commissioner_")
         )
     )
     error_html = ""
@@ -2308,7 +2320,7 @@ def render_details_page(connection, params, errors=None):
             </label>
           </div>
         </section>
-        {render_step_actions(back_to_type, '<button type="submit" class="section-submit">Continue to rental</button>')}
+        {render_step_actions_form("/type", '<button type="submit" class="section-submit">Continue to rental</button>')}
       </form>
       </section>
       <script>
@@ -2501,8 +2513,6 @@ def render_contact_page(connection, params, errors=None):
     if errors:
         items = "".join(f"<li>{html.escape(error)}</li>" for error in errors)
         error_html = f'<section class="panel error"><ul>{items}</ul></section>'
-    back_to_rental = build_return_to("/rental", params)
-
     content = f"""
     {render_reservation_steps("Contact details", lang)}
     {error_html}
@@ -2583,7 +2593,7 @@ def render_contact_page(connection, params, errors=None):
               </section>
             </div>
           </section>
-          {render_step_actions(back_to_rental, '<button type="submit">Continue to summary</button>')}
+          {render_step_actions_form("/rental", '<button type="submit">Continue to summary</button>')}
         </form>
       </section>
       <script>
