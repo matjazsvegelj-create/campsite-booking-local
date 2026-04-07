@@ -2535,6 +2535,7 @@ def render_contact_page(connection, params, errors=None):
                   </label>
                   <label class="field-span-2">
                     Unit leader address
+                    <small>street with house number, town, zip code</small>
                     <input type="text" name="unit_leader_address" value="{html.escape(params.get('unit_leader_address', ''))}" required>
                   </label>
                   <label class="field-span-2">
@@ -2563,6 +2564,7 @@ def render_contact_page(connection, params, errors=None):
                   </label>
                   <label class="field-span-2">
                     Contact person address
+                    <small>street with house number, town, zip code</small>
                     <input type="text" name="contact_person_address" class="contact-person-field" value="{html.escape(params.get('contact_person_address', ''))}" required>
                   </label>
                   <label class="field-span-2">
