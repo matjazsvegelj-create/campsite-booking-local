@@ -2051,19 +2051,19 @@ def render_type_page(connection, params, errors=None):
             """
         )
 
-    back_to_search = build_return_to("/", {
-        "location_id": location_id,
-        "lang": lang,
-        "check_in": check_in,
-        "check_out": check_out,
-        "guest_count": guest_count,
-        "origin_country": origin_country,
-        "member_category": member_category,
-        "preferred_arrival_slot": preferred_arrival_slot,
-        "preferred_arrival_note": preferred_arrival_note,
-        "preferred_departure_slot": preferred_departure_slot,
-        "preferred_departure_note": preferred_departure_note,
-    })
+    back_to_search_params = {key: first_param(params, key, "") for key in params.keys()}
+    back_to_search_params["location_id"] = str(location_id)
+    back_to_search_params["lang"] = lang
+    back_to_search_params["check_in"] = check_in
+    back_to_search_params["check_out"] = check_out
+    back_to_search_params["guest_count"] = guest_count
+    back_to_search_params["origin_country"] = origin_country
+    back_to_search_params["member_category"] = member_category
+    back_to_search_params["preferred_arrival_slot"] = preferred_arrival_slot
+    back_to_search_params["preferred_arrival_note"] = preferred_arrival_note
+    back_to_search_params["preferred_departure_slot"] = preferred_departure_slot
+    back_to_search_params["preferred_departure_note"] = preferred_departure_note
+    back_to_search = build_return_to("/", back_to_search_params)
     back_to_search += f"#location-{location_id}"
     content = f"""
     {render_steps("Type", lang)}
@@ -2880,6 +2880,26 @@ def render_search_page(connection, params, errors=None):
                     """
                 )
 
+        preserved_search_hidden = ""
+        if is_selected_location:
+            preserved_search_hidden = "".join(
+                f'<input type="hidden" name="{html.escape(key)}" value="{html.escape(first_param(params, key, ""))}">'
+                for key in params.keys()
+                if key not in {
+                    "location_id",
+                    "lang",
+                    "check_in",
+                    "check_out",
+                    "guest_count",
+                    "origin_country",
+                    "member_category",
+                    "preferred_arrival_slot",
+                    "preferred_arrival_note",
+                    "preferred_departure_slot",
+                    "preferred_departure_note",
+                }
+            )
+
         cards.append(
             f"""
             <section id="location-{location['id']}" class="panel{' panel--selected' if is_selected_location else ''}">
@@ -2892,6 +2912,7 @@ def render_search_page(connection, params, errors=None):
               <form method="get" action="/type" class="search-form location-search-form" data-location-name="{html.escape(location['name'])}" data-date-min="{location_min_date.isoformat() if location_min_date else ''}" data-date-max="{location_max_date.isoformat() if location_max_date else ''}" data-location-capacity="{location_capacity_total}">
                 <input type="hidden" name="location_id" value="{location['id']}">
                 <input type="hidden" name="lang" value="{lang}">
+                {preserved_search_hidden}
                 <label>
                   {html.escape(t(lang, "check_in"))}
                   <input type="date" name="check_in" class="stay-check-in" value="{html.escape(card_check_in)}"{min_attr}{max_attr} required>
