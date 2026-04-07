@@ -4,9 +4,11 @@ import cgi
 import json
 import re
 import sqlite3
+import smtplib
 from contextlib import closing
 from datetime import datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
+from email.message import EmailMessage
 from http.cookies import SimpleCookie
 from pathlib import Path
 from urllib.parse import parse_qs, quote_plus, urlencode
@@ -19,6 +21,13 @@ STATIC_DIR = APP_DIR / "static"
 DATE_FMT = "%Y-%m-%d"
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin")
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
+SMTP_HOST = os.environ.get("SMTP_HOST", "").strip()
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "587") or "587")
+SMTP_USERNAME = os.environ.get("SMTP_USERNAME", "").strip()
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "").strip()
+SMTP_FROM_EMAIL = os.environ.get("SMTP_FROM_EMAIL", "").strip()
+SMTP_FROM_NAME = os.environ.get("SMTP_FROM_NAME", "Campsite Booking").strip()
+SMTP_USE_TLS = os.environ.get("SMTP_USE_TLS", "1").strip() != "0"
 SUPPORTED_LANGS = ("en", "sl")
 LOCATION_LABELS = {
     "Laski rovt ZTS": {"en": "Laski rovt ZTS", "sl": "Laški rovt ZTS"},
@@ -92,6 +101,10 @@ TEXTS = {
         "our_group_is_from": "Our scout group is from:",
         "choose_one": "Choose one",
         "capacity_guests": "Capacity: {count} guests",
+        "booking_submitted": "Booking submitted",
+        "booking_submitted_text": "Your booking request has been submitted successfully.",
+        "booking_email_sent": "A booking summary has been sent to the contact person's email address.",
+        "booking_email_not_sent": "The booking was saved, but the confirmation email could not be sent yet.",
     },
     "sl": {
         "search": "Iskanje",
@@ -155,6 +168,10 @@ TEXTS = {
         "our_group_is_from": "Naša skavtska skupina prihaja iz:",
         "choose_one": "Izberite eno",
         "capacity_guests": "Kapaciteta: {count} gostov",
+        "booking_submitted": "Rezervacija oddana",
+        "booking_submitted_text": "Vaša rezervacijska zahteva je bila uspešno oddana.",
+        "booking_email_sent": "Povzetek rezervacije je bil poslan na e-poštni naslov kontaktne osebe.",
+        "booking_email_not_sent": "Rezervacija je bila shranjena, vendar potrditvenega e-sporočila še ni bilo mogoče poslati.",
     },
 }
 SEEDED_LOCATIONS = [
@@ -1020,6 +1037,10 @@ def get_cookie_value(environ, name):
 
 def is_admin_request(environ):
     return get_cookie_value(environ, "campsite_admin") == "1"
+
+
+def smtp_is_configured():
+    return bool(SMTP_HOST and SMTP_FROM_EMAIL)
 
 
 def save_uploaded_image(environ):
@@ -2618,6 +2639,18 @@ def render_admin_login_page(lang="en", error=""):
     return render_layout("Admin Login", content, lang=lang, current_path="/admin-login", current_params={"lang": lang})
 
 
+def render_booking_submitted_page(lang="en", email_sent=True):
+    content = f"""
+    <section class="panel">
+      <h2>{html.escape(t(lang, "booking_submitted"))}</h2>
+      <p>{html.escape(t(lang, "booking_submitted_text"))}</p>
+      <p>{html.escape(t(lang, "booking_email_sent" if email_sent else "booking_email_not_sent"))}</p>
+      <p><a class="button" href="/?lang={lang}">{html.escape(t(lang, "search"))}</a></p>
+    </section>
+    """
+    return render_layout(t(lang, "booking_submitted"), content, lang=lang, current_path="/booking-submitted", current_params={"lang": lang})
+
+
 def render_upload_form(lang, target_type, location_name, unit_name, label, extra_class="", return_to="/"):
     return f"""
     <form method="post" action="/upload-image" enctype="multipart/form-data" class="upload-form {extra_class} drop-upload">
@@ -2678,7 +2711,7 @@ def render_layout(title, content, notice="", lang="en", current_path="/", curren
       </nav>
       <nav>
         <a href="/?lang={lang}">{html.escape(t(lang, "search"))}</a>
-        {f'<a href="/admin?lang={lang}">{html.escape(t(lang, "admin"))}</a><form method="post" action="/admin-logout" class="inline-form inline-form--header"><input type="hidden" name="lang" value="{lang}"><button type="submit">Media logout</button></form>' if is_admin else f'<a href="/admin-login?lang={lang}">Media login</a>'}
+        {f'<a href="/admin?lang={lang}">{html.escape(t(lang, "admin"))}</a><form method="post" action="/admin-logout" class="inline-form inline-form--header"><input type="hidden" name="lang" value="{lang}"><button type="submit">Media logout</button></form>' if is_admin else ''}
       </nav>
     </div>
   </header>
@@ -3419,6 +3452,50 @@ def render_booking_page(connection, params, errors=None):
     return render_layout(t(lang, "booking"), content, lang=lang, current_path="/book", current_params=params)
 
 
+def build_booking_email_text(payload):
+    lines = [
+        "Booking summary",
+        "",
+        f"Location: {payload['location_name']}",
+        f"Unit: {payload['unit_name']}",
+        f"Stay: {payload['check_in'].isoformat()} to {payload['check_out'].isoformat()}",
+        f"Guests: {payload['guest_count']}",
+        f"Status: {payload['status']}",
+        f"Total: EUR {payload['total_price']:.2f}",
+        "",
+        f"Contact person: {payload['guest_name']}",
+    ]
+    if payload.get("guest_email"):
+        lines.append(f"Contact email: {payload['guest_email']}")
+    if payload.get("guest_phone"):
+        lines.append(f"Contact phone: {payload['guest_phone']}")
+    if payload.get("notes"):
+        lines.extend(["", "Details:", payload["notes"]])
+    return "\n".join(lines)
+
+
+def send_booking_confirmation_email(payload):
+    if not smtp_is_configured() or not payload.get("guest_email"):
+        return False, "SMTP not configured"
+    message = EmailMessage()
+    message["Subject"] = f"Booking summary - {payload['location_name']}"
+    message["From"] = f"{SMTP_FROM_NAME} <{SMTP_FROM_EMAIL}>"
+    message["To"] = payload["guest_email"]
+    message.set_content(build_booking_email_text(payload))
+    try:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as server:
+            server.ehlo()
+            if SMTP_USE_TLS:
+                server.starttls()
+                server.ehlo()
+            if SMTP_USERNAME:
+                server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            server.send_message(message)
+        return True, ""
+    except Exception as exc:
+        return False, str(exc)
+
+
 def validate_booking_form(connection, form, admin_mode=False):
     errors = []
     unit_id = int(form.get("unit_id", "0") or "0")
@@ -3588,6 +3665,8 @@ def validate_booking_form(connection, form, admin_mode=False):
 
     payload = {
         "unit_id": unit_id,
+        "location_name": unit["location_name"],
+        "unit_name": unit["unit_name"],
         "check_in": check_in,
         "check_out": check_out,
         "guest_count": guest_count,
@@ -3938,7 +4017,15 @@ def application(environ, start_response):
                         display_form = {key: value for key, value in form.items()}
                         status, headers, body = html_response(render_booking_page(connection, display_form, insert_errors))
                     else:
-                        status, headers, body = redirect_response("/admin?notice=Booking+created")
+                        email_sent, _ = send_booking_confirmation_email(payload)
+                        safe_lang = quote_plus(get_lang(form.get("lang", "en")))
+                        safe_email_sent = "1" if email_sent else "0"
+                        status, headers, body = redirect_response(f"/booking-submitted?lang={safe_lang}&email_sent={safe_email_sent}")
+        elif path == "/booking-submitted" and method == "GET":
+            params = {key: values[0] for key, values in parse_qs(environ.get("QUERY_STRING", "")).items()}
+            lang = get_lang(params.get("lang", "en"))
+            email_sent = params.get("email_sent", "0") == "1"
+            status, headers, body = html_response(render_booking_submitted_page(lang, email_sent=email_sent))
         elif path == "/admin" and method == "GET":
             params = {key: values[0] for key, values in parse_qs(environ.get("QUERY_STRING", "")).items()}
             if not is_admin_request(environ):
