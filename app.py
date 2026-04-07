@@ -2153,6 +2153,30 @@ def render_details_page(connection, params, errors=None):
         ("boarding_option", fields["boarding_option"]),
         ("laski_group_type", fields["laski_group_type"]),
     ]
+    visible_field_names = {
+        "lang",
+        "unit_id",
+        "check_in",
+        "check_out",
+        "guest_count",
+        "origin_country",
+        "member_category",
+        "boarding_option",
+        "laski_group_type",
+        "group_name",
+        "organization_name",
+        "group_location",
+        "vat_number",
+        "country",
+        "adult_count",
+        "child_count",
+        "preferred_arrival_slot",
+        "preferred_arrival_note",
+        "preferred_departure_slot",
+        "preferred_departure_note",
+        "notes",
+        "section_total",
+    }
     hidden_html = "".join(
         f'<input type="hidden" name="{html.escape(name)}" value="{html.escape(value)}">'
         for name, value in hidden_fields if value != ""
@@ -2161,6 +2185,10 @@ def render_details_page(connection, params, errors=None):
         f'<input type="hidden" name="{html.escape(key)}" value="{html.escape(params.get(key, ""))}">'
         for key in params.keys()
         if key.startswith("rental_")
+        or (
+            key not in visible_field_names
+            and not key.startswith("section_")
+        )
     )
     error_html = ""
     if errors:
