@@ -3505,6 +3505,7 @@ def build_booking_email_text(payload):
 def send_booking_confirmation_email(payload):
     if not smtp_is_configured() or not payload.get("guest_email"):
         return False, "SMTP not configured"
+    smtp_password = SMTP_PASSWORD.replace(" ", "")
     message = EmailMessage()
     message["Subject"] = f"Booking summary - {payload['location_name']}"
     message["From"] = f"{SMTP_FROM_NAME} <{SMTP_FROM_EMAIL}>"
@@ -3517,10 +3518,11 @@ def send_booking_confirmation_email(payload):
                 server.starttls()
                 server.ehlo()
             if SMTP_USERNAME:
-                server.login(SMTP_USERNAME, SMTP_PASSWORD)
+                server.login(SMTP_USERNAME, smtp_password)
             server.send_message(message)
         return True, ""
     except Exception as exc:
+        print(f"SMTP send failed: {exc}")
         return False, str(exc)
 
 
