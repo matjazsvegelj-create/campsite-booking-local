@@ -167,6 +167,17 @@ textarea {
   position: relative;
 }
 
+.checkin-picker {
+  position: relative;
+}
+
+.stay-check-in-native {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .checkout-trigger {
   width: 100%;
   text-align: left;

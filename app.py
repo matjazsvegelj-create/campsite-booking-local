@@ -837,6 +837,106 @@ def render_submitted_group_details(data, lang):
     return '<div class="summary-detail-grid">' + "".join(blocks) + '</div>'
 
 
+def build_submitted_group_details_html(data, lang):
+    return render_submitted_group_details(data, lang)
+
+
+def build_booking_summary_data(connection, unit, params):
+    check_in = params.get("check_in", "")
+    check_out = params.get("check_out", "")
+    guest_count = params.get("guest_count", "1")
+    unit_leader_name = params.get("unit_leader_name", "")
+    unit_leader_address = params.get("unit_leader_address", "")
+    unit_leader_email = params.get("unit_leader_email", "")
+    unit_leader_phone = params.get("unit_leader_phone", "")
+    contact_same_as_unit_leader = params.get("contact_same_as_unit_leader", "") == "on"
+    contact_person_name = params.get("contact_person_name", "")
+    contact_person_phone = params.get("contact_person_phone", "")
+    contact_person_address = params.get("contact_person_address", "")
+    contact_person_email = params.get("contact_person_email", "")
+    if contact_same_as_unit_leader:
+        contact_person_name = unit_leader_name
+        contact_person_address = unit_leader_address
+        contact_person_email = unit_leader_email
+        contact_person_phone = unit_leader_phone
+    international_commissioner_name = params.get("international_commissioner_name", "")
+    international_commissioner_address = params.get("international_commissioner_address", "")
+    international_commissioner_email = params.get("international_commissioner_email", "")
+    international_commissioner_phone = params.get("international_commissioner_phone", "")
+    notes = params.get("notes", "")
+    member_category = params.get("member_category", "")
+    boarding_option = params.get("boarding_option", "")
+    laski_group_type = params.get("laski_group_type", "")
+    preferred_arrival_slot = params.get("preferred_arrival_slot", "")
+    preferred_arrival_note = params.get("preferred_arrival_note", "")
+    preferred_departure_slot = params.get("preferred_departure_slot", "")
+    preferred_departure_note = params.get("preferred_departure_note", "")
+    group_name = params.get("group_name", "")
+    organization_name = params.get("organization_name", "")
+    group_location = params.get("group_location", "")
+    vat_number = params.get("vat_number", "")
+    country = params.get("country", "")
+    rental_comments = params.get("rental_comments", "")
+    adult_total, child_total, section_rows = calculate_section_totals(params)
+    adult_count = str(adult_total)
+    child_count = str(child_total)
+    selected_rentals = parse_rental_quantities(params)
+    selected_sections = [f'{row["label"]}: {row["count"]}' for row in section_rows if row["selected"]]
+    breakdown = build_summary_breakdown(
+        connection,
+        unit,
+        parse_date(check_in),
+        parse_date(check_out),
+        int(guest_count),
+        member_category,
+        boarding_option,
+        laski_group_type,
+        selected_rentals,
+    )
+    details_data = {
+        "organization_name": organization_name,
+        "group_name": group_name,
+        "group_location": group_location,
+        "vat_number": vat_number,
+        "country": country,
+        "selected_sections": selected_sections,
+        "adult_count": adult_count,
+        "child_count": child_count,
+        "guest_count": guest_count,
+        "unit_leader_name": unit_leader_name,
+        "unit_leader_address": unit_leader_address,
+        "unit_leader_email": unit_leader_email,
+        "unit_leader_phone": unit_leader_phone,
+        "contact_person_name": contact_person_name,
+        "contact_person_address": contact_person_address,
+        "contact_person_email": contact_person_email,
+        "contact_person_phone": contact_person_phone,
+        "international_commissioner_name": international_commissioner_name,
+        "international_commissioner_address": international_commissioner_address,
+        "international_commissioner_email": international_commissioner_email,
+        "international_commissioner_phone": international_commissioner_phone,
+        "check_in": check_in,
+        "check_out": check_out,
+        "preferred_arrival_slot": preferred_arrival_slot,
+        "preferred_arrival_note": preferred_arrival_note,
+        "preferred_departure_slot": preferred_departure_slot,
+        "preferred_departure_note": preferred_departure_note,
+        "selected_rentals": [
+            f"{entry['item']['label']} x{entry['quantity']}" + (f" ({entry['length']})" if entry['length'] else "")
+            for entry in selected_rentals
+        ],
+        "rental_comments": rental_comments,
+        "notes": notes,
+    }
+    return {
+        "details_data": details_data,
+        "breakdown": breakdown,
+        "contact_person_name": contact_person_name,
+        "contact_person_email": contact_person_email,
+        "contact_person_phone": contact_person_phone,
+    }
+
+
 def render_rental_item_row(item, params, lang, admin_mode, return_to):
     item_key = item["key"]
     enabled_value = params.get(f"rental_{item_key}_enabled", "no")
@@ -2927,7 +3027,10 @@ def render_search_page(connection, params, errors=None):
                 {preserved_search_hidden}
                 <label>
                   {html.escape(t(lang, "check_in"))}
-                  <input type="date" name="check_in" class="stay-check-in" value="{html.escape(card_check_in)}"{min_attr}{max_attr} required>
+                  <div class="checkin-picker">
+                    <input type="date" name="check_in" class="stay-check-in stay-check-in-native" value="{html.escape(card_check_in)}"{min_attr}{max_attr} required>
+                    <button type="button" class="checkout-trigger checkin-trigger">{html.escape(card_check_in or t(lang, "check_in"))}</button>
+                  </div>
                 </label>
                 <label>
                   {html.escape(t(lang, "check_out"))}
@@ -3005,8 +3108,9 @@ def render_search_page(connection, params, errors=None):
       const forms = document.querySelectorAll('.location-search-form');
       forms.forEach((form) => {
         const checkIn = form.querySelector('.stay-check-in');
+        const checkInTrigger = form.querySelector('.checkin-trigger');
         const checkOut = form.querySelector('.stay-check-out');
-        const checkOutTrigger = form.querySelector('.checkout-trigger');
+        const checkOutTrigger = form.querySelector('.checkout-picker .checkout-trigger');
         const checkOutCalendar = form.querySelector('.checkout-calendar');
         const checkOutMonth = form.querySelector('.checkout-calendar-month');
         const checkOutDays = form.querySelector('.checkout-calendar-days');
@@ -3071,6 +3175,11 @@ def render_search_page(connection, params, errors=None):
           memberCategorySelect.required = shouldShow;
           if (!shouldShow) {
             memberCategorySelect.value = '';
+          }
+        };
+        const setCheckInLabel = () => {
+          if (checkInTrigger) {
+            checkInTrigger.textContent = checkIn.value || %CHECKIN_LABEL%;
           }
         };
         const setCheckoutLabel = () => {
@@ -3205,7 +3314,16 @@ def render_search_page(connection, params, errors=None):
           }
           details.classList.add('is-ready');
         };
-        checkIn.addEventListener('change', recalc);
+        checkIn.addEventListener('change', () => {
+          setCheckInLabel();
+          recalc();
+        });
+        if (checkInTrigger) {
+          checkInTrigger.addEventListener('click', () => {
+            checkIn.showPicker?.();
+            checkIn.focus();
+          });
+        }
         guestCountInput.addEventListener('input', recalc);
         if (originCountryInput) {
           originCountryInput.addEventListener('input', syncMemberCategory);
@@ -3251,6 +3369,7 @@ def render_search_page(connection, params, errors=None):
           }
         });
         syncMemberCategory();
+        setCheckInLabel();
         recalc();
       });
 
@@ -3314,6 +3433,7 @@ def render_search_page(connection, params, errors=None):
       </script>
       """
     script = script.replace("%CHOOSE_DATES%", "'" + t(lang, "choose_dates_to_calc").replace("'", "\\'") + "'")
+    script = script.replace("%CHECKIN_LABEL%", "'" + t(lang, "check_in").replace("'", "\\'") + "'")
     script = script.replace("%SELECT_CHECKOUT%", "'" + t(lang, "check_out").replace("'", "\\'") + "'")
     script = script.replace("%LOCALE%", "'" + ("sl-SI" if lang == "sl" else "en-GB") + "'")
     return render_layout(t(lang, "app_title"), intro + "".join(cards) + script, notice=notice, lang=lang, current_path="/", current_params=params, is_admin=admin_mode)
@@ -3330,71 +3450,78 @@ def render_booking_page(connection, params, errors=None):
     check_in = params.get("check_in", "")
     check_out = params.get("check_out", "")
     guest_count = params.get("guest_count", "1")
-    unit_leader_name = params.get("unit_leader_name", "")
-    unit_leader_address = params.get("unit_leader_address", "")
-    unit_leader_email = params.get("unit_leader_email", "")
-    unit_leader_phone = params.get("unit_leader_phone", "")
-    contact_same_as_unit_leader = params.get("contact_same_as_unit_leader", "") == "on"
-    contact_person_name = params.get("contact_person_name", "")
-    contact_person_phone = params.get("contact_person_phone", "")
-    contact_person_address = params.get("contact_person_address", "")
-    contact_person_email = params.get("contact_person_email", "")
-    if contact_same_as_unit_leader:
-        contact_person_name = unit_leader_name
-        contact_person_address = unit_leader_address
-        contact_person_email = unit_leader_email
-        contact_person_phone = unit_leader_phone
-    international_commissioner_name = params.get("international_commissioner_name", "")
-    international_commissioner_address = params.get("international_commissioner_address", "")
-    international_commissioner_email = params.get("international_commissioner_email", "")
-    international_commissioner_phone = params.get("international_commissioner_phone", "")
-    guest_name = contact_person_name
-    guest_email = contact_person_email
-    guest_phone = contact_person_phone
-    notes = params.get("notes", "")
     member_category = params.get("member_category", "")
     boarding_option = params.get("boarding_option", "")
     laski_group_type = params.get("laski_group_type", "")
-    preferred_arrival_slot = params.get("preferred_arrival_slot", "")
-    preferred_arrival_note = params.get("preferred_arrival_note", "")
-    preferred_departure_slot = params.get("preferred_departure_slot", "")
-    preferred_departure_note = params.get("preferred_departure_note", "")
-    group_name = params.get("group_name", "")
-    organization_name = params.get("organization_name", "")
-    group_location = params.get("group_location", "")
-    vat_number = params.get("vat_number", "")
-    country = params.get("country", "")
-    rental_comments = params.get("rental_comments", "")
-    adult_total, child_total, section_rows = calculate_section_totals(params)
-    adult_count = str(adult_total)
-    child_count = str(child_total)
-    selected_rentals = parse_rental_quantities(params)
-    selected_sections = []
-    for row in section_rows:
-        if row["selected"]:
-            selected_sections.append(f'{row["label"]}: {row["count"]}')
     back_to_contact = build_return_to("/contact", params)
 
     try:
-        breakdown = build_summary_breakdown(
-            connection,
-            unit,
-            parse_date(check_in),
-            parse_date(check_out),
-            int(guest_count),
-            member_category,
-            boarding_option,
-            laski_group_type,
-            selected_rentals,
-        )
+        summary_data = build_booking_summary_data(connection, unit, params)
+        breakdown = summary_data["breakdown"]
+        details_data = summary_data["details_data"]
         total_nights = breakdown["total_nights"]
         total_price = breakdown["total_amount"]
         display_price = breakdown["summary_price_text"]
+        adult_count = details_data["adult_count"]
+        child_count = details_data["child_count"]
+        selected_rentals = details_data["selected_rentals"]
+        unit_leader_name = details_data["unit_leader_name"]
+        unit_leader_address = details_data["unit_leader_address"]
+        unit_leader_email = details_data["unit_leader_email"]
+        unit_leader_phone = details_data["unit_leader_phone"]
+        contact_person_name = details_data["contact_person_name"]
+        contact_person_phone = details_data["contact_person_phone"]
+        contact_person_address = details_data["contact_person_address"]
+        contact_person_email = details_data["contact_person_email"]
+        international_commissioner_name = details_data["international_commissioner_name"]
+        international_commissioner_address = details_data["international_commissioner_address"]
+        international_commissioner_email = details_data["international_commissioner_email"]
+        international_commissioner_phone = details_data["international_commissioner_phone"]
+        group_name = details_data["group_name"]
+        organization_name = details_data["organization_name"]
+        group_location = details_data["group_location"]
+        vat_number = details_data["vat_number"]
+        country = details_data["country"]
+        rental_comments = details_data["rental_comments"]
+        preferred_arrival_slot = details_data["preferred_arrival_slot"]
+        preferred_arrival_note = details_data["preferred_arrival_note"]
+        preferred_departure_slot = details_data["preferred_departure_slot"]
+        preferred_departure_note = details_data["preferred_departure_note"]
+        notes = details_data["notes"]
+        contact_same_as_unit_leader = params.get("contact_same_as_unit_leader", "") == "on"
     except Exception:
         breakdown = {"rows": [], "total_amount": Decimal("0.00"), "booking_fee": Decimal("0.00"), "second_payment": Decimal("0.00"), "booking_fee_label": "", "second_payment_label": ""}
         total_nights = 0
         total_price = Decimal("0.00")
         display_price = f"EUR {money(unit['price_per_guest_per_night']):.2f} per guest per night"
+        details_data = build_booking_summary_data(connection, unit, params)["details_data"]
+        adult_count = details_data["adult_count"]
+        child_count = details_data["child_count"]
+        selected_rentals = details_data["selected_rentals"]
+        unit_leader_name = details_data["unit_leader_name"]
+        unit_leader_address = details_data["unit_leader_address"]
+        unit_leader_email = details_data["unit_leader_email"]
+        unit_leader_phone = details_data["unit_leader_phone"]
+        contact_person_name = details_data["contact_person_name"]
+        contact_person_phone = details_data["contact_person_phone"]
+        contact_person_address = details_data["contact_person_address"]
+        contact_person_email = details_data["contact_person_email"]
+        international_commissioner_name = details_data["international_commissioner_name"]
+        international_commissioner_address = details_data["international_commissioner_address"]
+        international_commissioner_email = details_data["international_commissioner_email"]
+        international_commissioner_phone = details_data["international_commissioner_phone"]
+        group_name = details_data["group_name"]
+        organization_name = details_data["organization_name"]
+        group_location = details_data["group_location"]
+        vat_number = details_data["vat_number"]
+        country = details_data["country"]
+        rental_comments = details_data["rental_comments"]
+        preferred_arrival_slot = details_data["preferred_arrival_slot"]
+        preferred_arrival_note = details_data["preferred_arrival_note"]
+        preferred_departure_slot = details_data["preferred_departure_slot"]
+        preferred_departure_note = details_data["preferred_departure_note"]
+        notes = details_data["notes"]
+        contact_same_as_unit_leader = params.get("contact_same_as_unit_leader", "") == "on"
     show_ukanc_type_fields = is_ukanc_location(unit["location_name"])
 
     error_html = "".join(f"<li>{html.escape(error)}</li>" for error in errors)
@@ -3415,41 +3542,7 @@ def render_booking_page(connection, params, errors=None):
     """
     if error_html:
         content += f'<section class="panel error"><ul>{error_html}</ul></section>'
-    submitted_group_details_html = render_submitted_group_details({
-        "organization_name": organization_name,
-        "group_name": group_name,
-        "group_location": group_location,
-        "vat_number": vat_number,
-        "country": country,
-        "selected_sections": selected_sections,
-        "adult_count": adult_count,
-        "child_count": child_count,
-        "guest_count": guest_count,
-        "unit_leader_name": unit_leader_name,
-        "unit_leader_address": unit_leader_address,
-        "unit_leader_email": unit_leader_email,
-        "unit_leader_phone": unit_leader_phone,
-        "contact_person_name": contact_person_name,
-        "contact_person_address": contact_person_address,
-        "contact_person_email": contact_person_email,
-        "contact_person_phone": contact_person_phone,
-        "international_commissioner_name": international_commissioner_name,
-        "international_commissioner_address": international_commissioner_address,
-        "international_commissioner_email": international_commissioner_email,
-        "international_commissioner_phone": international_commissioner_phone,
-        "check_in": check_in,
-        "check_out": check_out,
-        "preferred_arrival_slot": preferred_arrival_slot,
-        "preferred_arrival_note": preferred_arrival_note,
-        "preferred_departure_slot": preferred_departure_slot,
-        "preferred_departure_note": preferred_departure_note,
-        "selected_rentals": [
-            f"{entry['item']['label']} x{entry['quantity']}" + (f" ({entry['length']})" if entry['length'] else "")
-            for entry in selected_rentals
-        ],
-        "rental_comments": rental_comments,
-        "notes": notes,
-    }, lang)
+    submitted_group_details_html = build_submitted_group_details_html(details_data, lang)
     content += f"""
     <section class="panel">
       <h2>Submitted group details</h2>
@@ -3514,25 +3607,35 @@ def render_booking_page(connection, params, errors=None):
 
 
 def build_booking_email_text(payload):
-    lines = [
-        "Booking summary",
-        "",
-        f"Location: {payload['location_name']}",
-        f"Unit: {payload['unit_name']}",
-        f"Stay: {payload['check_in'].isoformat()} to {payload['check_out'].isoformat()}",
-        f"Guests: {payload['guest_count']}",
-        f"Status: {payload['status']}",
-        f"Total: EUR {payload['total_price']:.2f}",
-        "",
-        f"Contact person: {payload['guest_name']}",
-    ]
-    if payload.get("guest_email"):
-        lines.append(f"Contact email: {payload['guest_email']}")
-    if payload.get("guest_phone"):
-        lines.append(f"Contact phone: {payload['guest_phone']}")
-    if payload.get("notes"):
-        lines.extend(["", "Details:", payload["notes"]])
-    return "\n".join(lines)
+    summary = payload["summary_data"]
+    details = summary["details_data"]
+    breakdown = summary["breakdown"]
+    detail_blocks = build_submitted_group_details_html(details, "en")
+    breakdown_table = render_breakdown_table(breakdown)
+    return f"""
+<html>
+  <body style="font-family: Georgia, 'Times New Roman', serif; color: #203127; background: #f3efe4; margin: 0; padding: 24px;">
+    <div style="max-width: 960px; margin: 0 auto;">
+      <h1 style="margin: 0 0 16px;">Booking summary</h1>
+      <div style="background: #fffaf0; border: 1px solid #d8cfbc; border-radius: 18px; padding: 20px; margin-bottom: 16px;">
+        <h2 style="margin-top: 0;">{html.escape(payload['location_name'])} / {html.escape(payload['unit_name'])}</h2>
+        <p><strong>Stay:</strong> {payload['check_in'].isoformat()} to {payload['check_out'].isoformat()}</p>
+        <p><strong>Guests:</strong> {payload['guest_count']}</p>
+        <p><strong>Status:</strong> {html.escape(payload['status'])}</p>
+        <p><strong>Total:</strong> EUR {payload['total_price']:.2f}</p>
+      </div>
+      <div style="background: #fffaf0; border: 1px solid #d8cfbc; border-radius: 18px; padding: 20px; margin-bottom: 16px;">
+        <h2 style="margin-top: 0;">Submitted group details</h2>
+        {detail_blocks}
+      </div>
+      <div style="background: #fffaf0; border: 1px solid #d8cfbc; border-radius: 18px; padding: 20px;">
+        <h2 style="margin-top: 0;">Calculation</h2>
+        {breakdown_table}
+      </div>
+    </div>
+  </body>
+</html>
+"""
 
 
 def send_booking_confirmation_email(payload):
@@ -3543,7 +3646,10 @@ def send_booking_confirmation_email(payload):
     message["Subject"] = f"Booking summary - {payload['location_name']}"
     message["From"] = f"{SMTP_FROM_NAME} <{SMTP_FROM_EMAIL}>"
     message["To"] = payload["guest_email"]
-    message.set_content(build_booking_email_text(payload))
+    message.set_content(
+        f"Booking summary\n\nLocation: {payload['location_name']}\nUnit: {payload['unit_name']}\nStay: {payload['check_in'].isoformat()} to {payload['check_out'].isoformat()}\nGuests: {payload['guest_count']}\nTotal: EUR {payload['total_price']:.2f}"
+    )
+    message.add_alternative(build_booking_email_text(payload), subtype="html")
     try:
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as server:
             server.ehlo()
@@ -3741,6 +3847,7 @@ def validate_booking_form(connection, form, admin_mode=False):
         "overbook_allowed": 1 if overbook_allowed else 0,
         "status": form.get("status", "pending").strip() or "pending",
         "total_price": total_price,
+        "summary_data": build_booking_summary_data(connection, unit, form),
     }
     return payload, errors
 
