@@ -12,6 +12,7 @@ from email.message import EmailMessage
 from http.cookies import SimpleCookie
 from pathlib import Path
 from urllib.parse import parse_qs, quote_plus, urlencode
+from urllib.request import Request, urlopen
 from wsgiref.simple_server import make_server
 
 
@@ -28,6 +29,9 @@ SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "").strip()
 SMTP_FROM_EMAIL = os.environ.get("SMTP_FROM_EMAIL", "").strip()
 SMTP_FROM_NAME = os.environ.get("SMTP_FROM_NAME", "Campsite Booking").strip()
 SMTP_USE_TLS = os.environ.get("SMTP_USE_TLS", "1").strip() != "0"
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "").strip()
+RESEND_FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "").strip()
+RESEND_FROM_NAME = os.environ.get("RESEND_FROM_NAME", SMTP_FROM_NAME).strip()
 SUPPORTED_LANGS = ("en", "sl")
 LOCATION_LABELS = {
     "Laski rovt ZTS": {"en": "Laski rovt ZTS", "sl": "Laški rovt ZTS"},
@@ -1150,6 +1154,14 @@ def is_admin_request(environ):
 
 def smtp_is_configured():
     return bool(SMTP_HOST and SMTP_FROM_EMAIL)
+
+
+def resend_is_configured():
+    return bool(RESEND_API_KEY and (RESEND_FROM_EMAIL or SMTP_FROM_EMAIL))
+
+
+def email_is_configured():
+    return resend_is_configured() or smtp_is_configured()
 
 
 def save_uploaded_image(environ):
@@ -3725,7 +3737,51 @@ def build_booking_email_text(payload):
 
 
 def send_booking_confirmation_email(payload):
-    if not smtp_is_configured() or not payload.get("guest_email"):
+    if not email_is_configured() or not payload.get("guest_email"):
+        return False, "Email delivery not configured"
+    if resend_is_configured():
+        return send_booking_confirmation_email_via_resend(payload)
+    return send_booking_confirmation_email_via_smtp(payload)
+
+
+def send_booking_confirmation_email_via_resend(payload):
+    from_email = RESEND_FROM_EMAIL or SMTP_FROM_EMAIL
+    from_name = RESEND_FROM_NAME or SMTP_FROM_NAME
+    body = {
+        "from": f"{from_name} <{from_email}>",
+        "to": [payload["guest_email"]],
+        "subject": f"Booking summary - {payload['location_name']}",
+        "text": (
+            f"Booking summary\n\nLocation: {payload['location_name']}\nUnit: {payload['unit_name']}\n"
+            f"Stay: {payload['check_in'].isoformat()} to {payload['check_out'].isoformat()}\n"
+            f"Guests: {payload['guest_count']}\nTotal: EUR {payload['total_price']:.2f}"
+        ),
+        "html": build_booking_email_text(payload),
+    }
+    request = Request(
+        "https://api.resend.com/emails",
+        data=json.dumps(body).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {RESEND_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=20) as response:
+            status_code = getattr(response, "status", response.getcode())
+            if 200 <= status_code < 300:
+                return True, ""
+            response_body = response.read().decode("utf-8", errors="replace")
+            print(f"Resend send failed: HTTP {status_code} {response_body}")
+            return False, f"HTTP {status_code}"
+    except Exception as exc:
+        print(f"Resend send failed: {exc}")
+        return False, str(exc)
+
+
+def send_booking_confirmation_email_via_smtp(payload):
+    if not smtp_is_configured():
         return False, "SMTP not configured"
     smtp_password = SMTP_PASSWORD.replace(" ", "")
     message = EmailMessage()
