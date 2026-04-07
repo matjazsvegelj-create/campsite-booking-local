@@ -3028,8 +3028,25 @@ def render_search_page(connection, params, errors=None):
                 <label>
                   {html.escape(t(lang, "check_in"))}
                   <div class="checkin-picker">
-                    <input type="date" name="check_in" class="stay-check-in stay-check-in-native" value="{html.escape(card_check_in)}"{min_attr}{max_attr} required>
+                    <input type="hidden" name="check_in" class="stay-check-in" value="{html.escape(card_check_in)}" required>
                     <button type="button" class="checkout-trigger checkin-trigger">{html.escape(card_check_in or t(lang, "check_in"))}</button>
+                    <div class="checkout-calendar checkin-calendar" hidden>
+                      <div class="checkout-calendar-nav">
+                        <button type="button" class="calendar-prev checkin-prev" aria-label="Previous month">&lsaquo;</button>
+                        <strong class="checkout-calendar-month checkin-calendar-month"></strong>
+                        <button type="button" class="calendar-next checkin-next" aria-label="Next month">&rsaquo;</button>
+                      </div>
+                      <div class="checkout-calendar-weekdays">
+                        <span>Mo</span>
+                        <span>Tu</span>
+                        <span>We</span>
+                        <span>Th</span>
+                        <span>Fr</span>
+                        <span>Sa</span>
+                        <span>Su</span>
+                      </div>
+                      <div class="checkout-calendar-days checkin-calendar-days"></div>
+                    </div>
                   </div>
                 </label>
                 <label>
@@ -3109,13 +3126,18 @@ def render_search_page(connection, params, errors=None):
       forms.forEach((form) => {
         const checkIn = form.querySelector('.stay-check-in');
         const checkInTrigger = form.querySelector('.checkin-trigger');
+        const checkInCalendar = form.querySelector('.checkin-calendar');
+        const checkInMonth = form.querySelector('.checkin-calendar-month');
+        const checkInDays = form.querySelector('.checkin-calendar-days');
+        const checkInPrev = form.querySelector('.checkin-prev');
+        const checkInNext = form.querySelector('.checkin-next');
         const checkOut = form.querySelector('.stay-check-out');
         const checkOutTrigger = form.querySelector('.checkout-picker .checkout-trigger');
-        const checkOutCalendar = form.querySelector('.checkout-calendar');
-        const checkOutMonth = form.querySelector('.checkout-calendar-month');
-        const checkOutDays = form.querySelector('.checkout-calendar-days');
-        const checkOutPrev = form.querySelector('.calendar-prev');
-        const checkOutNext = form.querySelector('.calendar-next');
+        const checkOutCalendar = form.querySelector('.checkout-picker .checkout-calendar');
+        const checkOutMonth = form.querySelector('.checkout-picker .checkout-calendar-month');
+        const checkOutDays = form.querySelector('.checkout-picker .checkout-calendar-days');
+        const checkOutPrev = form.querySelector('.checkout-picker .calendar-prev');
+        const checkOutNext = form.querySelector('.checkout-picker .calendar-next');
         const guestCountInput = form.querySelector('input[name="guest_count"]');
         const originCountryInput = form.querySelector('input[name="origin_country"]');
         const memberCategoryWrap = form.querySelector('.member-category-period');
@@ -3129,6 +3151,7 @@ def render_search_page(connection, params, errors=None):
         const minDateValue = form.getAttribute('data-date-min') || '';
         const maxDateValue = form.getAttribute('data-date-max') || '';
         const locationCapacity = Number.parseInt(form.getAttribute('data-location-capacity') || '0', 10);
+        let visibleCheckInMonthStart = null;
         let visibleMonthStart = null;
         const formatDate = (date) => {
           const year = date.getFullYear();
@@ -3185,8 +3208,40 @@ def render_search_page(connection, params, errors=None):
         const setCheckoutLabel = () => {
           checkOutTrigger.textContent = checkOut.value || %SELECT_CHECKOUT%;
         };
+        const closeCheckInCalendar = () => {
+          checkInCalendar.hidden = true;
+        };
         const closeCheckoutCalendar = () => {
           checkOutCalendar.hidden = true;
+        };
+        const renderCheckInCalendar = () => {
+          const effectiveMinDate = absoluteMinDate ? new Date(absoluteMinDate) : new Date();
+          if (!visibleCheckInMonthStart || visibleCheckInMonthStart < getMonthStart(effectiveMinDate)) {
+            visibleCheckInMonthStart = getMonthStart(effectiveMinDate);
+          }
+          const monthStart = getMonthStart(visibleCheckInMonthStart);
+          const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+          const firstWeekday = (monthStart.getDay() + 6) % 7;
+          const dayCells = [];
+          for (let i = 0; i < firstWeekday; i += 1) {
+            dayCells.push('<span class="calendar-day calendar-day--blank"></span>');
+          }
+          for (let day = 1; day <= monthEnd.getDate(); day += 1) {
+            const current = new Date(monthStart.getFullYear(), monthStart.getMonth(), day);
+            const value = formatDate(current);
+            const beforeMin = absoluteMinDate && current < absoluteMinDate;
+            const afterMax = absoluteMaxDate && current > absoluteMaxDate;
+            const selected = value === checkIn.value;
+            const classNames = ['calendar-day'];
+            if (beforeMin || afterMax) classNames.push('calendar-day--disabled');
+            if (selected) classNames.push('calendar-day--selected');
+            const disabled = beforeMin || afterMax ? ' disabled' : '';
+            dayCells.push('<button type="button" class="' + classNames.join(' ') + '" data-date="' + value + '"' + disabled + '>' + day + '</button>');
+          }
+          checkInMonth.textContent = new Intl.DateTimeFormat(%LOCALE%, { month: 'long', year: 'numeric' }).format(monthStart);
+          checkInPrev.disabled = absoluteMinDate ? monthStart <= getMonthStart(absoluteMinDate) : false;
+          checkInNext.disabled = absoluteMaxDate ? monthStart >= getMonthStart(absoluteMaxDate) : false;
+          checkInDays.innerHTML = dayCells.join('');
         };
         const renderCheckoutCalendar = () => {
           if (!checkIn.value) {
@@ -3320,8 +3375,9 @@ def render_search_page(connection, params, errors=None):
         });
         if (checkInTrigger) {
           checkInTrigger.addEventListener('click', () => {
-            checkIn.showPicker?.();
-            checkIn.focus();
+            renderCheckInCalendar();
+            checkInCalendar.hidden = !checkInCalendar.hidden;
+            closeCheckoutCalendar();
           });
         }
         guestCountInput.addEventListener('input', recalc);
@@ -3338,6 +3394,34 @@ def render_search_page(connection, params, errors=None):
           }
           renderCheckoutCalendar();
           checkOutCalendar.hidden = !checkOutCalendar.hidden;
+          closeCheckInCalendar();
+        });
+        checkInPrev.addEventListener('click', () => {
+          if (!visibleCheckInMonthStart) {
+            return;
+          }
+          visibleCheckInMonthStart = new Date(visibleCheckInMonthStart.getFullYear(), visibleCheckInMonthStart.getMonth() - 1, 1);
+          renderCheckInCalendar();
+        });
+        checkInNext.addEventListener('click', () => {
+          if (!visibleCheckInMonthStart) {
+            return;
+          }
+          visibleCheckInMonthStart = new Date(visibleCheckInMonthStart.getFullYear(), visibleCheckInMonthStart.getMonth() + 1, 1);
+          renderCheckInCalendar();
+        });
+        checkInDays.addEventListener('click', (event) => {
+          const button = event.target.closest('button[data-date]');
+          if (!button || button.disabled) {
+            return;
+          }
+          checkIn.value = button.getAttribute('data-date');
+          if (checkOut.value && checkOut.value <= checkIn.value) {
+            checkOut.value = '';
+          }
+          setCheckInLabel();
+          closeCheckInCalendar();
+          recalc();
         });
         checkOutPrev.addEventListener('click', () => {
           if (!visibleMonthStart) {
@@ -3365,6 +3449,7 @@ def render_search_page(connection, params, errors=None):
         });
         document.addEventListener('click', (event) => {
           if (!form.contains(event.target)) {
+            closeCheckInCalendar();
             closeCheckoutCalendar();
           }
         });
