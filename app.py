@@ -3038,9 +3038,9 @@ def render_search_page(connection, params, errors=None):
                 <input type="hidden" name="location_id" value="{location['id']}">
                 <input type="hidden" name="lang" value="{lang}">
                 {preserved_search_hidden}
-                <label>
-                  {html.escape(t(lang, "check_in"))}
-                  <div class="checkin-picker">
+                  <label>
+                    {html.escape(t(lang, "check_in"))}
+                    <div class="checkout-picker checkin-picker">
                     <input type="hidden" name="check_in" class="stay-check-in" value="{html.escape(card_check_in)}" required>
                     <button type="button" class="checkout-trigger checkin-trigger">{html.escape(card_check_in or t(lang, "check_in"))}</button>
                     <div class="checkout-calendar checkin-calendar" hidden>
@@ -3138,12 +3138,12 @@ def render_search_page(connection, params, errors=None):
       const forms = document.querySelectorAll('.location-search-form');
       forms.forEach((form) => {
         const checkIn = form.querySelector('.stay-check-in');
-        const checkInTrigger = form.querySelector('.checkin-trigger');
-        const checkInCalendar = form.querySelector('.checkin-calendar');
-        const checkInMonth = form.querySelector('.checkin-calendar-month');
-        const checkInDays = form.querySelector('.checkin-calendar-days');
-        const checkInPrev = form.querySelector('.checkin-prev');
-        const checkInNext = form.querySelector('.checkin-next');
+        const checkInTrigger = form.querySelector('.checkin-picker .checkout-trigger');
+        const checkInCalendar = form.querySelector('.checkin-picker .checkout-calendar');
+        const checkInMonth = form.querySelector('.checkin-picker .checkout-calendar-month');
+        const checkInDays = form.querySelector('.checkin-picker .checkout-calendar-days');
+        const checkInPrev = form.querySelector('.checkin-picker .calendar-prev');
+        const checkInNext = form.querySelector('.checkin-picker .calendar-next');
         const checkOut = form.querySelector('.stay-check-out');
         const checkOutTrigger = form.querySelector('.checkout-picker .checkout-trigger');
         const checkOutCalendar = form.querySelector('.checkout-picker .checkout-calendar');
