@@ -6386,11 +6386,17 @@ def build_booking_email_text(payload):
     </div>
   </body>
 </html>
-"""
+    """
+
+
+def booking_contact_recipient_email(payload):
+    summary_data = payload.get("summary_data", {})
+    details_data = summary_data.get("details_data", {}) if isinstance(summary_data, dict) else {}
+    return (details_data.get("contact_person_email") or payload.get("guest_email") or "").strip()
 
 
 def send_booking_confirmation_email(payload):
-    if not email_is_configured() or not payload.get("guest_email"):
+    if not email_is_configured() or not booking_contact_recipient_email(payload):
         return False, "Email delivery not configured"
     if resend_is_configured():
         return send_booking_confirmation_email_via_resend(payload)
@@ -6400,9 +6406,10 @@ def send_booking_confirmation_email(payload):
 def send_booking_confirmation_email_via_resend(payload):
     from_email = RESEND_FROM_EMAIL or SMTP_FROM_EMAIL
     from_name = RESEND_FROM_NAME or SMTP_FROM_NAME
+    recipient_email = booking_contact_recipient_email(payload)
     body = {
         "from": f"{from_name} <{from_email}>",
-        "to": [payload["guest_email"]],
+        "to": [recipient_email],
         "subject": f"Booking summary - {payload['location_name']}",
         "text": (
             f"Booking summary\n\nLocation: {display_location_with_unit(payload['location_name'], payload['unit_name'], 'en')}\n"
@@ -6437,10 +6444,11 @@ def send_booking_confirmation_email_via_smtp(payload):
     if not smtp_is_configured():
         return False, "SMTP not configured"
     smtp_password = SMTP_PASSWORD.replace(" ", "")
+    recipient_email = booking_contact_recipient_email(payload)
     message = EmailMessage()
     message["Subject"] = f"Booking summary - {payload['location_name']}"
     message["From"] = f"{SMTP_FROM_NAME} <{SMTP_FROM_EMAIL}>"
-    message["To"] = payload["guest_email"]
+    message["To"] = recipient_email
     message.set_content(
         f"Booking summary\n\nLocation: {display_location_with_unit(payload['location_name'], payload['unit_name'], 'en')}\nStay: {payload['check_in'].isoformat()} to {payload['check_out'].isoformat()}\nGuests: {payload['guest_count']}\nTotal: EUR {payload['total_price']:.2f}"
     )
@@ -6651,7 +6659,7 @@ def validate_booking_form(connection, form, admin_mode=False):
         "guest_count": guest_count,
         "guest_name": guest_name,
         "guest_email": guest_email,
-        "guest_phone": form.get("guest_phone", "").strip(),
+        "guest_phone": guest_phone,
         "notes": notes,
         "created_by_admin": 1 if admin_mode else 0,
         "overbook_allowed": 1 if overbook_allowed else 0,
