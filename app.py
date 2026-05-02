@@ -170,6 +170,8 @@ TEXTS = {
         "stay": "Stay",
         "estimated_total": "Estimated total",
         "estimated_total_warning": "Warning: this is not the final calculation. The final confirmed calculation will be sent by email after confirmation and contract preparation.",
+        "summary_group_type": "Group type",
+        "slovenian_non_scout_group": "Slovenian, non scout group",
         "member_category": "Member category",
         "boarding_option": "Boarding option",
         "laski_group_type": "Laski group type",
@@ -397,6 +399,8 @@ TEXTS = {
         "stay": "Termin",
         "estimated_total": "Ocenjeni znesek",
         "estimated_total_warning": "Opozorilo: to ni končni izračun. Končni potrjeni izračun bo poslan po e-pošti po potrditvi in pripravi pogodbe.",
+        "summary_group_type": "Tip skupine",
+        "slovenian_non_scout_group": "Slovenska, netaborniška skupina",
         "member_category": "Kategorija članstva",
         "boarding_option": "Izbrana oskrba",
         "laski_group_type": "Tip skupine Laški rovt",
@@ -3897,9 +3901,6 @@ def render_details_page(connection, params, errors=None):
         or (
             key not in visible_field_names
             and not key.startswith("section_")
-            and not key.startswith("contact_person_")
-            and not key.startswith("unit_leader_")
-            and not key.startswith("international_commissioner_")
         )
     )
     error_html = ""
@@ -6257,6 +6258,16 @@ def render_booking_page(connection, params, errors=None):
         notes = details_data["notes"]
         contact_same_as_unit_leader = params.get("contact_same_as_unit_leader", "") == "on"
     show_ukanc_type_fields = is_ukanc_location(unit["location_name"])
+    is_slovenia_other_group = is_slovenia_country(params.get("origin_country", "")) and member_category == "other"
+    if is_slovenia_other_group:
+        group_type_summary_html = f'<p>{html.escape(t(lang, "summary_group_type"))}: {html.escape(t(lang, "slovenian_non_scout_group"))}</p>'
+    else:
+        group_type_summary_html = (
+            f'<p>{html.escape(t(lang, "member_category"))}: {html.escape(member_category)}</p>' if show_ukanc_type_fields and member_category else ""
+        )
+        group_type_summary_html += (
+            f'<p>{html.escape(t(lang, "laski_group_type"))}: {html.escape(laski_group_type)}</p>' if laski_group_type else ""
+        )
 
     error_html = "".join(f"<li>{html.escape(error)}</li>" for error in errors)
     content = f"""
@@ -6270,9 +6281,8 @@ def render_booking_page(connection, params, errors=None):
         <p>{html.escape(t(lang, "price"))}: {display_price}</p>
         <p>{html.escape(t(lang, "estimated_total"))}: EUR {total_price:.2f}</p>
         <p class="summary-warning"><strong>{html.escape(t(lang, "estimated_total_warning"))}</strong></p>
-        {f'<p>{html.escape(t(lang, "member_category"))}: {html.escape(member_category)}</p>' if show_ukanc_type_fields and member_category else ''}
+        {group_type_summary_html}
         {f'<p>{html.escape(t(lang, "boarding_option"))}: {html.escape(boarding_option)}</p>' if show_ukanc_type_fields and boarding_option else ''}
-        {f'<p>{html.escape(t(lang, "laski_group_type"))}: {html.escape(laski_group_type)}</p>' if laski_group_type else ''}
       </section>
     """
     if error_html:
