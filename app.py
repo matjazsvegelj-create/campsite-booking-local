@@ -48,12 +48,12 @@ LOCATION_CONTENT = {
     "Laski rovt ZTS": {
         "en": {
             "summary": "A large summer campsite in Bohinj with three subcamps for scout groups that want flexible layouts and fast access to the lake area.",
-            "highlights": ["Up to 125 guests together across 3 subcamps. If your group has that many guests, you must reserve each subcamp separately.", "Summer season location", "Best for larger group camps"],
+            "highlights": ["Up to 125 guests together across 3 subcamps. If your group has that many guests, you must reserve each subcamp separately to reach the desired number of reservations.", "Summer season location", "Best for larger group camps"],
             "season": "Open from 15 May to 15 September",
         },
         "sl": {
             "summary": "Velik poletni taborni prostor v Bohinju s tremi podtabori za skupine, ki potrebujejo prilagodljivo razporeditev in hiter dostop do jezerskega območja.",
-            "highlights": ["Do 125 gostov skupaj v 3 podtaborih. V kolikor vas je toliko, morate rezervirati vsak podtabor posebej.", "Lokacija za poletno sezono", "Primerno za večje tabore"],
+            "highlights": ["Do 125 gostov skupaj v 3 podtaborih. V kolikor vas je toliko, morate rezervirati vsak podtabor posebej, da dosežete željeno število rezervacij.", "Lokacija za poletno sezono", "Primerno za večje tabore"],
             "season": "Odprto od 15. maja do 15. septembra",
         },
     },
