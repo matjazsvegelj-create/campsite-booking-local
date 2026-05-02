@@ -3,6 +3,7 @@ import os
 import cgi
 import json
 import re
+import secrets
 import sqlite3
 import smtplib
 from contextlib import closing
@@ -34,6 +35,7 @@ SMTP_USE_TLS = os.environ.get("SMTP_USE_TLS", "1").strip() != "0"
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "").strip()
 RESEND_FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "").strip()
 RESEND_FROM_NAME = os.environ.get("RESEND_FROM_NAME", SMTP_FROM_NAME).strip()
+PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "https://campsite-booking-local.onrender.com").strip().rstrip("/")
 SUPPORTED_LANGS = ("en", "sl")
 LOCATION_LABELS = {
     "Laski rovt ZTS": {"en": "Laski rovt ZTS", "sl": "Laški rovt ZTS"},
@@ -266,6 +268,8 @@ TEXTS = {
         "status_cancelled": "cancelled",
         "status_rejected": "rejected",
         "status_expired": "expired",
+        "status_change_requested": "change requested",
+        "status_cancel_requested": "cancellation requested",
         "rental": "Rental",
         "rental_heading": "Rental",
         "rental_comments_label": "Rental comments",
@@ -315,6 +319,14 @@ TEXTS = {
         "booking_submitted_text": "Your booking request has been submitted successfully.",
         "booking_email_sent": "A booking summary has been sent to the contact person's email address.",
         "booking_email_not_sent": "The booking was saved, but the confirmation email could not be sent yet.",
+        "manage_booking": "Manage booking",
+        "manage_booking_intro": "Use this private link to update contact details or request changes to the booking. Changes are sent for admin review before confirmation.",
+        "manage_booking_link_text": "You can review or request changes to this booking here:",
+        "manage_booking_invalid": "This manage booking link is invalid.",
+        "manage_booking_saved": "Your change request has been saved.",
+        "requested_changes": "Requested changes",
+        "requested_changes_help": "Write anything else that should change, for example dates, rentals, age groups, documents, or cancellation request.",
+        "save_change_request": "Save change request",
         "info_eyebrow": "Before you choose dates",
         "info_title": "Scout and group stays in one overview.",
         "info_text": "Use this first page to review the available places, practical notes, and useful documents before you continue to the date and availability step.",
@@ -495,6 +507,8 @@ TEXTS = {
         "status_cancelled": "preklicano",
         "status_rejected": "zavrnjeno",
         "status_expired": "poteklo",
+        "status_change_requested": "zahtevana sprememba",
+        "status_cancel_requested": "zahtevan preklic",
         "rental": "Izposoja",
         "rental_heading": "Izposoja",
         "rental_comments_label": "Komentarji za izposojo",
@@ -544,6 +558,14 @@ TEXTS = {
         "booking_submitted_text": "Vaša rezervacijska zahteva je bila uspešno oddana.",
         "booking_email_sent": "Povzetek rezervacije je bil poslan na e-poštni naslov kontaktne osebe.",
         "booking_email_not_sent": "Rezervacija je bila shranjena, vendar potrditvenega e-sporočila še ni bilo mogoče poslati.",
+        "manage_booking": "Uredi rezervacijo",
+        "manage_booking_intro": "Uporabite to zasebno povezavo za posodobitev kontaktnih podatkov ali za zahtevo sprememb rezervacije. Spremembe gredo pred potrditvijo v pregled administratorju.",
+        "manage_booking_link_text": "Rezervacijo lahko pregledate ali zahtevate spremembe tukaj:",
+        "manage_booking_invalid": "Ta povezava za urejanje rezervacije ni veljavna.",
+        "manage_booking_saved": "Vaša zahteva za spremembo je bila shranjena.",
+        "requested_changes": "Zahtevane spremembe",
+        "requested_changes_help": "Zapišite vse ostalo, kar naj se spremeni, na primer termin, izposoja, starostne skupine, dokumenti ali zahteva za preklic.",
+        "save_change_request": "Shrani zahtevo za spremembo",
         "info_eyebrow": "Pred izbiro termina",
         "info_title": "Pregled taborniških in skupinskih nastanitev.",
         "info_text": "Na tej prvi strani so zbrane osnovne informacije o lokacijah, praktične opombe ter prostor za dokumente in uporabne povezave pred nadaljevanjem na izbiro termina.",
@@ -673,8 +695,8 @@ LASKI_GROUP_TYPES = [
     ("non_scouts", "Non scouts"),
     ("taborniki_zts", "Taborniki ZTS"),
 ]
-BOOKING_STATUSES = ["pending", "confirmed", "fee_paid", "cancelled", "rejected", "expired"]
-ACTIVE_BOOKING_STATUSES = ("pending", "confirmed", "fee_paid")
+BOOKING_STATUSES = ["pending", "change_requested", "confirmed", "fee_paid", "cancel_requested", "cancelled", "rejected", "expired"]
+ACTIVE_BOOKING_STATUSES = ("pending", "change_requested", "confirmed", "fee_paid", "cancel_requested")
 GROUP_SECTION_OPTIONS = [
     ("age_0_6", "0-6.99 years of age"),
     ("age_7_17", "7-17.99 years of age"),
@@ -1339,7 +1361,7 @@ def get_reserved_rental_quantity(connection, item_key, check_in, check_out, excl
         from booking_rentals br
         join bookings b on b.id = br.booking_id
         where br.item_key = ?
-          and b.status in ('pending', 'confirmed', 'fee_paid')
+          and b.status in ('pending', 'change_requested', 'confirmed', 'fee_paid', 'cancel_requested')
           and b.check_in < ?
           and b.check_out > ?
     """
@@ -1431,7 +1453,7 @@ def count_overlapping_ukanc_bookings(connection, check_in, check_out):
         join bookable_units bu on bu.id = b.bookable_unit_id
         join locations l on l.id = bu.location_id
         where l.name in (?, ?)
-          and b.status in ('pending', 'confirmed', 'fee_paid')
+          and b.status in ('pending', 'change_requested', 'confirmed', 'fee_paid', 'cancel_requested')
           and b.check_in < ?
           and b.check_out > ?
         """,
@@ -2480,11 +2502,12 @@ def init_db():
                 check_in text not null,
                 check_out text not null,
                 guest_count integer not null check (guest_count > 0),
-                status text not null check (status in ('pending', 'confirmed', 'fee_paid', 'cancelled', 'rejected', 'expired')),
+                status text not null check (status in ('pending', 'change_requested', 'confirmed', 'fee_paid', 'cancel_requested', 'cancelled', 'rejected', 'expired')),
                 total_price numeric not null check (total_price >= 0),
                 created_by_admin integer not null default 0,
                 overbook_allowed integer not null default 0,
                 notes text,
+                booking_token text,
                 created_at text not null default current_timestamp,
                 updated_at text not null default current_timestamp,
                 check (check_out > check_in)
@@ -2525,11 +2548,17 @@ def init_db():
             connection.execute("alter table booking_rentals add column selected_dates text")
         if "half_day_preference" not in rental_columns:
             connection.execute("alter table booking_rentals add column half_day_preference text")
+        booking_columns = {
+            row["name"]
+            for row in connection.execute("pragma table_info(bookings)")
+        }
+        if "booking_token" not in booking_columns:
+            connection.execute("alter table bookings add column booking_token text")
         bookings_table_sql_row = connection.execute(
             "select sql from sqlite_master where type = 'table' and name = 'bookings'"
         ).fetchone()
         bookings_table_sql = (bookings_table_sql_row[0] or "") if bookings_table_sql_row else ""
-        if "'fee_paid'" not in bookings_table_sql:
+        if "'fee_paid'" not in bookings_table_sql or "'change_requested'" not in bookings_table_sql:
             connection.executescript(
                 """
                 alter table bookings rename to bookings_old;
@@ -2543,11 +2572,12 @@ def init_db():
                     check_in text not null,
                     check_out text not null,
                     guest_count integer not null check (guest_count > 0),
-                    status text not null check (status in ('pending', 'confirmed', 'fee_paid', 'cancelled', 'rejected', 'expired')),
+                    status text not null check (status in ('pending', 'change_requested', 'confirmed', 'fee_paid', 'cancel_requested', 'cancelled', 'rejected', 'expired')),
                     total_price numeric not null check (total_price >= 0),
                     created_by_admin integer not null default 0,
                     overbook_allowed integer not null default 0,
                     notes text,
+                    booking_token text,
                     created_at text not null default current_timestamp,
                     updated_at text not null default current_timestamp,
                     check (check_out > check_in)
@@ -2555,11 +2585,11 @@ def init_db():
 
                 insert into bookings (
                     id, bookable_unit_id, guest_name, guest_email, guest_phone, check_in, check_out,
-                    guest_count, status, total_price, created_by_admin, overbook_allowed, notes, created_at, updated_at
+                    guest_count, status, total_price, created_by_admin, overbook_allowed, notes, booking_token, created_at, updated_at
                 )
                 select
                     id, bookable_unit_id, guest_name, guest_email, guest_phone, check_in, check_out,
-                    guest_count, status, total_price, created_by_admin, overbook_allowed, notes, created_at, updated_at
+                    guest_count, status, total_price, created_by_admin, overbook_allowed, notes, booking_token, created_at, updated_at
                 from bookings_old;
 
                 drop table bookings_old;
@@ -2571,6 +2601,12 @@ def init_db():
                     on bookings(status);
                 """
             )
+        for row in connection.execute("select id from bookings where booking_token is null or booking_token = ''").fetchall():
+            connection.execute(
+                "update bookings set booking_token = ? where id = ?",
+                (secrets.token_urlsafe(32), row["id"]),
+            )
+        connection.execute("create unique index if not exists idx_bookings_booking_token on bookings(booking_token)")
         sync_seed_data(connection)
         connection.commit()
 
@@ -2631,7 +2667,7 @@ def get_reserved_guests_by_day(connection, unit_id, check_in, check_out, exclude
         select check_in, check_out, guest_count
         from bookings
         where bookable_unit_id = ?
-          and status in ('pending', 'confirmed', 'fee_paid')
+          and status in ('pending', 'change_requested', 'confirmed', 'fee_paid', 'cancel_requested')
           and check_in < ?
           and check_out > ?
     """
@@ -2804,6 +2840,26 @@ def fetch_bookings(connection):
     ).fetchall()
 
 
+def fetch_booking_by_token(connection, token):
+    token = (token or "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9_-]{20,}", token):
+        return None
+    row = connection.execute(
+        """
+        select
+            b.*,
+            bu.name as unit_name,
+            l.name as location_name
+        from bookings b
+        join bookable_units bu on bu.id = b.bookable_unit_id
+        join locations l on l.id = bu.location_id
+        where b.booking_token = ?
+        """,
+        (token,),
+    ).fetchone()
+    return dict(row) if row else None
+
+
 def extract_country_from_notes(notes):
     match = re.search(r"(?:^|\|\s*)Country:\s*([^|]+)", str(notes or ""))
     return match.group(1).strip() if match else ""
@@ -2938,8 +2994,10 @@ def build_admin_booking_view_data(connection, booking):
 def booking_status_class(status):
     return {
         "pending": "is-pending",
+        "change_requested": "is-pending",
         "confirmed": "is-confirmed",
         "fee_paid": "is-fee-paid",
+        "cancel_requested": "is-pending",
         "cancelled": "is-cancelled",
         "rejected": "is-rejected",
         "expired": "is-expired",
@@ -2949,8 +3007,10 @@ def booking_status_class(status):
 def booking_status_label(status, lang="en"):
     status_key = {
         "pending": "status_pending",
+        "change_requested": "status_change_requested",
         "confirmed": "status_confirmed",
         "fee_paid": "status_fee_paid",
+        "cancel_requested": "status_cancel_requested",
         "cancelled": "status_cancelled",
         "rejected": "status_rejected",
         "expired": "status_expired",
@@ -2976,7 +3036,7 @@ def assign_booking_tracks(bookings):
 def booking_status_group(status):
     if status in {"confirmed", "fee_paid"}:
         return "confirmed"
-    if status == "pending":
+    if status in {"pending", "change_requested", "cancel_requested"}:
         return "pending"
     return "other"
 
@@ -4635,6 +4695,144 @@ def render_contact_page(connection, params, errors=None):
       </script>
       """
     return render_layout("Contact details", content, lang=lang, current_path="/contact", current_params=params)
+
+
+def rebuild_notes_with_manage_changes(notes, guest_name, guest_email, guest_phone, requested_changes):
+    metadata, extra_notes = parse_booking_notes_metadata(notes)
+    if guest_name:
+        metadata["Contact person"] = guest_name
+    if guest_phone:
+        metadata["Contact person phone"] = guest_phone
+    if guest_email:
+        metadata["Contact person email"] = guest_email
+    parts = [f"{key}: {value}" for key, value in metadata.items() if str(value).strip()]
+    parts.extend(part for part in extra_notes.split(" | ") if part.strip())
+    if requested_changes:
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+        parts.append(f"Change request {timestamp}: {requested_changes}")
+    return " | ".join(parts)
+
+
+def render_manage_booking_page(connection, params, errors=None):
+    errors = errors or []
+    lang = get_lang(params.get("lang", "en"))
+    token = params.get("token", "")
+    booking = fetch_booking_by_token(connection, token)
+    if not booking:
+        return render_layout(
+            t(lang, "manage_booking"),
+            f'<section class="panel error"><p>{html.escape(t(lang, "manage_booking_invalid"))}</p></section>',
+            lang=lang,
+            current_path="/manage-booking",
+            current_params={"lang": lang},
+        )
+    booking_view = build_admin_booking_view_data(connection, booking)
+    submitted_details = build_submitted_group_details_html(booking_view["details_data"], lang) if booking_view else ""
+    breakdown_html = render_breakdown_table(booking_view["breakdown"], lang) if booking_view else ""
+    notice = params.get("notice", "")
+    error_html = "".join(f"<li>{html.escape(error)}</li>" for error in errors)
+    content = f"""
+    {f'<section class="panel notice"><p>{html.escape(notice)}</p></section>' if notice else ''}
+    {f'<section class="panel error"><ul>{error_html}</ul></section>' if error_html else ''}
+    <section class="panel">
+      <h2>{html.escape(t(lang, "manage_booking"))}</h2>
+      <p>{html.escape(t(lang, "manage_booking_intro"))}</p>
+      <p><strong>{html.escape(display_location_with_unit(booking["location_name"], booking["unit_name"], lang))}</strong></p>
+      <p>{html.escape(t(lang, "stay"))}: {html.escape(format_stay_range(lang, booking["check_in"], booking["check_out"]))}</p>
+      <p>{html.escape(t(lang, "admin_status"))}: {html.escape(booking_status_label(booking["status"], lang))}</p>
+      <form method="post" action="/manage-booking" class="booking-form">
+        <input type="hidden" name="token" value="{html.escape(token)}">
+        <input type="hidden" name="lang" value="{lang}">
+        <label>
+          {html.escape(t(lang, "contact_person_name"))}
+          <input type="text" name="guest_name" value="{html.escape(params.get("guest_name", booking["guest_name"]))}" required>
+        </label>
+        <label>
+          {html.escape(t(lang, "contact_person_email"))}
+          <input type="email" name="guest_email" value="{html.escape(params.get("guest_email", booking["guest_email"]))}" required>
+        </label>
+        <label>
+          {html.escape(t(lang, "contact_phone"))}
+          <input type="text" name="guest_phone" value="{html.escape(params.get("guest_phone", booking["guest_phone"] or ""))}">
+        </label>
+        <label>
+          {html.escape(t(lang, "guests"))}
+          <input type="number" name="guest_count" min="1" value="{html.escape(str(params.get("guest_count", booking["guest_count"])))}" required>
+        </label>
+        <label class="field-span-full">
+          {html.escape(t(lang, "requested_changes"))}
+          <small>{html.escape(t(lang, "requested_changes_help"))}</small>
+          <textarea name="requested_changes" rows="5">{html.escape(params.get("requested_changes", ""))}</textarea>
+        </label>
+        <div class="form-actions">
+          <button type="submit">{html.escape(t(lang, "save_change_request"))}</button>
+        </div>
+      </form>
+    </section>
+    <section class="panel">
+      <h2>{html.escape(t(lang, "admin_reservation_details"))}</h2>
+      {submitted_details}
+    </section>
+    <section class="panel">
+      <h2>{html.escape(t(lang, "admin_calculation"))}</h2>
+      {breakdown_html}
+    </section>
+    """
+    return render_layout(t(lang, "manage_booking"), content, lang=lang, current_path="/manage-booking", current_params={"lang": lang, "token": token})
+
+
+def handle_manage_booking_update(connection, form):
+    lang = get_lang(form.get("lang", "en"))
+    token = form.get("token", "")
+    booking = fetch_booking_by_token(connection, token)
+    if not booking:
+        return html_response(render_manage_booking_page(connection, {"lang": lang}, [t(lang, "manage_booking_invalid")]))
+    guest_name = form.get("guest_name", "").strip()
+    guest_email = form.get("guest_email", "").strip()
+    guest_phone = form.get("guest_phone", "").strip()
+    requested_changes = form.get("requested_changes", "").strip()
+    errors = []
+    try:
+        guest_count = int(form.get("guest_count", "0"))
+    except ValueError:
+        guest_count = 0
+    if not guest_name:
+        errors.append("Contact person name is required.")
+    if not guest_email:
+        errors.append("Contact person email is required.")
+    if guest_count <= 0:
+        errors.append("Guest count must be a positive whole number.")
+    if booking["status"] in {"cancelled", "rejected", "expired"}:
+        errors.append("This booking can no longer be changed with this link.")
+    if guest_count > 0:
+        _, violations = capacity_check(
+            connection,
+            booking["bookable_unit_id"],
+            parse_date(booking["check_in"]),
+            parse_date(booking["check_out"]),
+            guest_count,
+            exclude_booking_id=booking["id"],
+        )
+        errors.extend(violations)
+    if errors:
+        return html_response(render_manage_booking_page(connection, dict(form), errors))
+    notes = rebuild_notes_with_manage_changes(booking["notes"], guest_name, guest_email, guest_phone, requested_changes)
+    connection.execute(
+        """
+        update bookings
+        set guest_name = ?,
+            guest_email = ?,
+            guest_phone = ?,
+            guest_count = ?,
+            status = ?,
+            notes = ?,
+            updated_at = current_timestamp
+        where id = ?
+        """,
+        (guest_name, guest_email, guest_phone, guest_count, "change_requested", notes, booking["id"]),
+    )
+    connection.commit()
+    return redirect_response(f"/manage-booking?token={quote_plus(token)}&lang={quote_plus(lang)}&notice={quote_plus(t(lang, 'manage_booking_saved'))}")
 
 
 def html_response(body, status="200 OK", content_type="text/html; charset=utf-8"):
@@ -6363,6 +6561,18 @@ def build_booking_email_text(payload):
     breakdown = summary["breakdown"]
     detail_blocks = build_submitted_group_details_html(details, "en")
     breakdown_table = render_breakdown_table(breakdown, "en")
+    manage_url = booking_manage_url(payload)
+    manage_html = (
+        f"""
+      <div style="background: #fffaf0; border: 1px solid #d8cfbc; border-radius: 18px; padding: 20px; margin-bottom: 16px;">
+        <h2 style="margin-top: 0;">Manage booking</h2>
+        <p>{html.escape(t('en', 'manage_booking_link_text'))}</p>
+        <p><a href="{html.escape(manage_url)}">{html.escape(manage_url)}</a></p>
+      </div>
+        """
+        if manage_url
+        else ""
+    )
     return f"""
 <html>
   <body style="font-family: Georgia, 'Times New Roman', serif; color: #203127; background: #f3efe4; margin: 0; padding: 24px;">
@@ -6375,6 +6585,7 @@ def build_booking_email_text(payload):
         <p><strong>Status:</strong> {html.escape(payload['status'])}</p>
         <p><strong>Total:</strong> EUR {payload['total_price']:.2f}</p>
       </div>
+      {manage_html}
       <div style="background: #fffaf0; border: 1px solid #d8cfbc; border-radius: 18px; padding: 20px; margin-bottom: 16px;">
         <h2 style="margin-top: 0;">Submitted group details</h2>
         {detail_blocks}
@@ -6387,6 +6598,14 @@ def build_booking_email_text(payload):
   </body>
 </html>
     """
+
+
+def booking_manage_url(payload):
+    token = (payload.get("booking_token") or "").strip()
+    if not token:
+        return ""
+    lang = quote_plus(get_lang(payload.get("lang", "en")))
+    return f"{PUBLIC_BASE_URL}/manage-booking?token={quote_plus(token)}&lang={lang}"
 
 
 def booking_contact_recipient_email(payload):
@@ -6414,7 +6633,8 @@ def send_booking_confirmation_email_via_resend(payload):
         "text": (
             f"Booking summary\n\nLocation: {display_location_with_unit(payload['location_name'], payload['unit_name'], 'en')}\n"
             f"Stay: {payload['check_in'].isoformat()} to {payload['check_out'].isoformat()}\n"
-            f"Guests: {payload['guest_count']}\nTotal: EUR {payload['total_price']:.2f}"
+            f"Guests: {payload['guest_count']}\nTotal: EUR {payload['total_price']:.2f}\n\n"
+            f"{t('en', 'manage_booking_link_text')} {booking_manage_url(payload)}"
         ),
         "html": build_booking_email_text(payload),
     }
@@ -6450,7 +6670,7 @@ def send_booking_confirmation_email_via_smtp(payload):
     message["From"] = f"{SMTP_FROM_NAME} <{SMTP_FROM_EMAIL}>"
     message["To"] = recipient_email
     message.set_content(
-        f"Booking summary\n\nLocation: {display_location_with_unit(payload['location_name'], payload['unit_name'], 'en')}\nStay: {payload['check_in'].isoformat()} to {payload['check_out'].isoformat()}\nGuests: {payload['guest_count']}\nTotal: EUR {payload['total_price']:.2f}"
+        f"Booking summary\n\nLocation: {display_location_with_unit(payload['location_name'], payload['unit_name'], 'en')}\nStay: {payload['check_in'].isoformat()} to {payload['check_out'].isoformat()}\nGuests: {payload['guest_count']}\nTotal: EUR {payload['total_price']:.2f}\n\n{t('en', 'manage_booking_link_text')} {booking_manage_url(payload)}"
     )
     message.add_alternative(build_booking_email_text(payload), subtype="html")
     try:
@@ -6666,6 +6886,8 @@ def validate_booking_form(connection, form, admin_mode=False):
         "status": form.get("status", "pending").strip() or "pending",
         "total_price": total_price,
         "selected_rentals": selected_rentals,
+        "booking_token": secrets.token_urlsafe(32),
+        "lang": get_lang(form.get("lang", "en")),
         "summary_data": build_booking_summary_data(connection, unit, form),
     }
     return payload, errors
@@ -6698,8 +6920,8 @@ def insert_booking(connection, payload):
         """
         insert into bookings (
             bookable_unit_id, guest_name, guest_email, guest_phone, check_in, check_out,
-            guest_count, status, total_price, created_by_admin, overbook_allowed, notes, updated_at
-        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, current_timestamp)
+            guest_count, status, total_price, created_by_admin, overbook_allowed, notes, booking_token, updated_at
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, current_timestamp)
         """,
         (
             payload["unit_id"],
@@ -6714,6 +6936,7 @@ def insert_booking(connection, payload):
             payload["created_by_admin"],
             payload["overbook_allowed"],
             payload["notes"],
+            payload["booking_token"],
         ),
     )
     booking_id = cursor.lastrowid
@@ -7281,6 +7504,14 @@ def application(environ, start_response):
             lang = get_lang(params.get("lang", "en"))
             email_sent = params.get("email_sent", "0") == "1"
             status, headers, body = html_response(render_booking_submitted_page(lang, email_sent=email_sent))
+        elif path == "/manage-booking" and method == "GET":
+            params = {key: values[0] for key, values in parse_qs(environ.get("QUERY_STRING", "")).items()}
+            with closing(get_connection()) as connection:
+                status, headers, body = html_response(render_manage_booking_page(connection, params))
+        elif path == "/manage-booking" and method == "POST":
+            form = read_post_data(environ)
+            with closing(get_connection()) as connection:
+                status, headers, body = handle_manage_booking_update(connection, form)
         elif path == "/admin" and method == "GET":
             params = {key: values[0] for key, values in parse_qs(environ.get("QUERY_STRING", "")).items()}
             if not is_admin_request(environ):
