@@ -196,7 +196,7 @@ TEXTS = {
         "national_scout_organization": "National scout organization",
         "local_scout_unit": "Local scout unit",
         "local_taborniki_unit": "Local scout unit",
-        "group_name_label": "Name of the group",
+        "group_name_label": "Registered name of the group",
         "street_label": "Street",
         "house_number_label": "House number",
         "post_code_label": "Post code",
@@ -413,7 +413,7 @@ TEXTS = {
         "national_scout_organization": "Nacionalna skavtska organizacija",
         "local_scout_unit": "Lokalna skavtska enota",
         "local_taborniki_unit": "Lokalna taborniška enota",
-        "group_name_label": "Ime skupine",
+        "group_name_label": "Registrirano ime skupine",
         "street_label": "Ulica",
         "house_number_label": "Hišna številka",
         "post_code_label": "Poštna številka",
@@ -1649,7 +1649,7 @@ def render_submitted_group_details(data, lang):
     blocks = [
         render_detail_group("Group details" if (is_non_scout_group or is_slovenia_other_group) else t(lang, "taborniki_unit_details") if is_slovenia_zts_group else t(lang, "scout_unit_details"), [
             *(([] if (is_non_scout_group or is_slovenia_other_group) else [("National scout organization", data["organization_name"] or not_specified)])),
-            (("Name of the group" if (is_non_scout_group or is_slovenia_other_group) else t(lang, "local_taborniki_unit") if is_slovenia_zts_group else t(lang, "local_scout_unit")), data["group_name"] or not_specified),
+            (("Registered name of the group" if (is_non_scout_group or is_slovenia_other_group) else t(lang, "local_taborniki_unit") if is_slovenia_zts_group else t(lang, "local_scout_unit")), data["group_name"] or not_specified),
             ("Street", data["group_street"] or not_specified),
             ("House number", data["group_house_number"] or not_specified),
             ("Post code", data["group_post_code"] or not_specified),
@@ -1915,7 +1915,7 @@ def validate_group_details_params(params):
     is_non_scout_group = params.get("laski_group_type", "") == "non_scouts"
     is_slovenia_other_group = is_slovenia_country(params.get("origin_country", "")) and params.get("member_category", "") == "other"
     if not params.get("group_name", "").strip():
-        errors.append("Name of the group is required." if (is_non_scout_group or is_slovenia_other_group) else "Local scout unit is required.")
+        errors.append("Registered name of the group is required." if (is_non_scout_group or is_slovenia_other_group) else "Local scout unit is required.")
     if not params.get("group_street", "").strip():
         errors.append("Street is required.")
     if not params.get("group_house_number", "").strip():
