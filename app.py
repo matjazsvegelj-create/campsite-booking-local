@@ -938,14 +938,15 @@ def render_time_select(name, selected_value, lang):
 
 
 def render_country_input(selected_value, name="country", list_id="country-options"):
-    options = "".join(
-        f'<option value="{html.escape(country)}"></option>'
-        for country in COUNTRY_OPTIONS
-    )
+    options_json = html.escape(json.dumps(COUNTRY_OPTIONS), quote=True)
+    input_id = html.escape(list_id)
     return (
-        f'<input type="text" name="{html.escape(name)}" value="{html.escape(selected_value)}" '
-        f'list="{html.escape(list_id)}" autocomplete="off" class="country-input">'
-        f'<datalist id="{html.escape(list_id)}">{options}</datalist>'
+        f'<span class="country-combobox">'
+        f'<input type="text" id="{input_id}" name="{html.escape(name)}" value="{html.escape(selected_value)}" '
+        f'autocomplete="off" class="country-input" role="combobox" aria-autocomplete="list" '
+        f'aria-expanded="false" data-country-options="{options_json}">'
+        f'<span class="country-suggestions" role="listbox" hidden></span>'
+        f'</span>'
     )
 
 
@@ -5821,30 +5822,102 @@ def render_search_page(connection, params, errors=None):
 
         const countryInputs = document.querySelectorAll('.country-input');
         countryInputs.forEach((input) => {
-          const listId = input.getAttribute('list');
-          const datalist = listId ? document.getElementById(listId) : null;
-          if (!datalist) return;
-          const allOptions = Array.from(datalist.querySelectorAll('option')).map((option) => option.value);
-          const syncOptions = () => {
-            const query = input.value.trim().toLowerCase();
-            const filtered = allOptions.filter((country) => country.toLowerCase().includes(query)).slice(0, 50);
-            datalist.innerHTML = filtered.map((country) => `<option value="${country}"></option>`).join('');
+          const combo = input.closest('.country-combobox');
+          const suggestions = combo ? combo.querySelector('.country-suggestions') : null;
+          if (!combo || !suggestions) return;
+          let allOptions = [];
+          try {
+            allOptions = JSON.parse(input.dataset.countryOptions || '[]');
+          } catch (error) {
+            allOptions = [];
+          }
+          const closeOptions = () => {
+            suggestions.hidden = true;
+            input.setAttribute('aria-expanded', 'false');
           };
-          const openOptions = () => {
-            syncOptions();
-            if (typeof input.showPicker === 'function') {
-              requestAnimationFrame(() => {
-                try {
-                  input.showPicker();
-                } catch (error) {
-                }
+          const showOptions = () => {
+            suggestions.hidden = false;
+            input.setAttribute('aria-expanded', 'true');
+          };
+          const renderOptions = () => {
+            const query = input.value.trim().toLowerCase();
+            const startsWithMatches = allOptions.filter((country) => country.toLowerCase().startsWith(query));
+            const containsMatches = query
+              ? allOptions.filter((country) => !country.toLowerCase().startsWith(query) && country.toLowerCase().includes(query))
+              : [];
+            const filtered = startsWithMatches.concat(containsMatches).slice(0, 80);
+            suggestions.replaceChildren();
+            filtered.forEach((country) => {
+              const option = document.createElement('button');
+              option.type = 'button';
+              option.className = 'country-suggestion';
+              option.setAttribute('role', 'option');
+              option.textContent = country;
+              option.addEventListener('mousedown', (event) => {
+                event.preventDefault();
+                input.value = country;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+                closeOptions();
               });
+              suggestions.appendChild(option);
+            });
+            if (filtered.length) {
+              showOptions();
+            } else {
+              closeOptions();
             }
           };
-          input.addEventListener('input', syncOptions);
+          const openOptions = () => {
+            renderOptions();
+          };
+          input.addEventListener('input', renderOptions);
           input.addEventListener('focus', openOptions);
           input.addEventListener('click', openOptions);
-          syncOptions();
+          input.addEventListener('keydown', (event) => {
+            const items = Array.from(suggestions.querySelectorAll('.country-suggestion'));
+            if (event.key === 'Escape') {
+              closeOptions();
+              return;
+            }
+            if (event.key === 'ArrowDown' && items.length) {
+              event.preventDefault();
+              items[0].focus();
+            }
+          });
+          suggestions.addEventListener('keydown', (event) => {
+            const items = Array.from(suggestions.querySelectorAll('.country-suggestion'));
+            const currentIndex = items.indexOf(document.activeElement);
+            if (event.key === 'Escape') {
+              closeOptions();
+              input.focus();
+            } else if (event.key === 'ArrowDown' && items.length) {
+              event.preventDefault();
+              items[Math.min(currentIndex + 1, items.length - 1)].focus();
+            } else if (event.key === 'ArrowUp') {
+              event.preventDefault();
+              if (currentIndex <= 0) {
+                input.focus();
+              } else {
+                items[currentIndex - 1].focus();
+              }
+            }
+          });
+          input.addEventListener('blur', () => {
+            window.setTimeout(() => {
+              if (!combo.contains(document.activeElement)) closeOptions();
+            }, 120);
+          });
+        });
+        document.addEventListener('mousedown', (event) => {
+          countryInputs.forEach((input) => {
+            const combo = input.closest('.country-combobox');
+            const suggestions = combo ? combo.querySelector('.country-suggestions') : null;
+            if (combo && suggestions && !combo.contains(event.target)) {
+              suggestions.hidden = true;
+              input.setAttribute('aria-expanded', 'false');
+            }
+          });
         });
       })();
       </script>

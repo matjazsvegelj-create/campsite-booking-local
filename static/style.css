@@ -526,6 +526,42 @@ textarea {
   background: #fff;
 }
 
+.country-combobox {
+  position: relative;
+  display: block;
+}
+
+.country-suggestions {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  right: 0;
+  z-index: 60;
+  max-height: 16rem;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 16px 32px rgba(32, 49, 39, 0.14);
+}
+
+.country-suggestion {
+  display: block;
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  color: var(--ink);
+  text-align: left;
+}
+
+.country-suggestion:hover,
+.country-suggestion:focus {
+  background: #edf4ee;
+  color: var(--ink);
+}
+
 .checkout-picker {
   position: relative;
 }
