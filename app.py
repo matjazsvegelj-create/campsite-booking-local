@@ -280,6 +280,9 @@ TEXTS = {
         "rental_add_picture": "Add picture for {label}",
         "rental_available_selected_dates": "Available for selected dates: {count}",
         "contact_details": "Contact details",
+        "contact_leader_section": "{label} contact details",
+        "first_name_label": "Name",
+        "surname_label": "Surname",
         "contact_name_surname": "{label}: name, surname",
         "contact_address": "{label} address",
         "contact_address_help": "street with house number, town, zip code",
@@ -499,6 +502,9 @@ TEXTS = {
         "rental_add_picture": "Dodaj sliko za {label}",
         "rental_available_selected_dates": "Na voljo za izbrane datume: {count}",
         "contact_details": "Kontaktni podatki",
+        "contact_leader_section": "Kontaktni podatki: {label}",
+        "first_name_label": "Ime",
+        "surname_label": "Priimek",
         "contact_name_surname": "{label}: ime in priimek",
         "contact_address": "{label} naslov",
         "contact_address_help": "ulica s hišno številko, kraj, poštna številka",
@@ -1110,19 +1116,56 @@ DETAILS_RESET_KEYS = {
 
 CONTACT_RESET_KEYS = {
     "unit_leader_name",
+    "unit_leader_first_name",
+    "unit_leader_last_name",
     "unit_leader_address",
+    "unit_leader_street",
+    "unit_leader_house_number",
+    "unit_leader_post_code",
+    "unit_leader_town",
     "unit_leader_email",
     "unit_leader_phone",
     "contact_same_as_unit_leader",
     "contact_person_name",
+    "contact_person_first_name",
+    "contact_person_last_name",
     "contact_person_phone",
     "contact_person_address",
+    "contact_person_street",
+    "contact_person_house_number",
+    "contact_person_post_code",
+    "contact_person_town",
     "contact_person_email",
     "international_commissioner_name",
     "international_commissioner_address",
     "international_commissioner_email",
     "international_commissioner_phone",
 }
+
+
+def contact_full_name(source, prefix):
+    first_name = source.get(f"{prefix}_first_name", "").strip()
+    last_name = source.get(f"{prefix}_last_name", "").strip()
+    full_name = " ".join(part for part in (first_name, last_name) if part)
+    return full_name or source.get(f"{prefix}_name", "").strip()
+
+
+def contact_full_address(source, prefix):
+    street = source.get(f"{prefix}_street", "").strip()
+    house_number = source.get(f"{prefix}_house_number", "").strip()
+    post_code = source.get(f"{prefix}_post_code", "").strip()
+    town = source.get(f"{prefix}_town", "").strip()
+    street_line = " ".join(part for part in (street, house_number) if part)
+    town_line = " ".join(part for part in (post_code, town) if part)
+    full_address = ", ".join(part for part in (street_line, town_line) if part)
+    return full_address or source.get(f"{prefix}_address", "").strip()
+
+
+def split_contact_name(value):
+    parts = str(value or "").strip().split()
+    if len(parts) <= 1:
+        return str(value or "").strip(), ""
+    return " ".join(parts[:-1]), parts[-1]
 
 
 def should_keep_reset_param(step_name, key):
@@ -1707,14 +1750,14 @@ def build_booking_summary_data(connection, unit, params):
     check_in = params.get("check_in", "")
     check_out = params.get("check_out", "")
     guest_count = params.get("guest_count", "1")
-    unit_leader_name = params.get("unit_leader_name", "")
-    unit_leader_address = params.get("unit_leader_address", "")
+    unit_leader_name = contact_full_name(params, "unit_leader")
+    unit_leader_address = contact_full_address(params, "unit_leader")
     unit_leader_email = params.get("unit_leader_email", "")
     unit_leader_phone = params.get("unit_leader_phone", "")
     contact_same_as_unit_leader = params.get("contact_same_as_unit_leader", "") == "on"
-    contact_person_name = params.get("contact_person_name", "")
+    contact_person_name = contact_full_name(params, "contact_person")
     contact_person_phone = params.get("contact_person_phone", "")
-    contact_person_address = params.get("contact_person_address", "")
+    contact_person_address = contact_full_address(params, "contact_person")
     contact_person_email = params.get("contact_person_email", "")
     if contact_same_as_unit_leader:
         contact_person_name = unit_leader_name
@@ -1948,25 +1991,41 @@ def validate_contact_details_params(params):
     is_slovenia_other_group = is_slovenia_country(params.get("origin_country", "")) and params.get("member_category", "") == "other"
     leader_label = contact_leader_label("en", params.get("laski_group_type", "") == "non_scouts" or is_slovenia_other_group)
     required_fields = [
-        ("unit_leader_name", f"{leader_label} name is required."),
-        ("unit_leader_address", f"{leader_label} address is required."),
+        ("unit_leader_first_name", f"{leader_label} first name is required."),
+        ("unit_leader_last_name", f"{leader_label} surname is required."),
+        ("unit_leader_street", f"{leader_label} street is required."),
+        ("unit_leader_house_number", f"{leader_label} house number is required."),
+        ("unit_leader_post_code", f"{leader_label} post code is required."),
+        ("unit_leader_town", f"{leader_label} town is required."),
         ("unit_leader_email", f"{leader_label} email is required."),
         ("unit_leader_phone", f"{leader_label} telephone number is required."),
     ]
     for field_name, message in required_fields:
         if not params.get(field_name, "").strip():
             errors.append(message)
+    if not contact_full_name(params, "unit_leader"):
+        errors.append(f"{leader_label} name is required.")
+    if not contact_full_address(params, "unit_leader"):
+        errors.append(f"{leader_label} address is required.")
     same_as_unit_leader = params.get("contact_same_as_unit_leader", "") == "on"
     if not same_as_unit_leader:
         contact_required = [
-            ("contact_person_name", "Contact person name is required."),
+            ("contact_person_first_name", "Contact person first name is required."),
+            ("contact_person_last_name", "Contact person surname is required."),
             ("contact_person_phone", "Reachable telephone number is required."),
-            ("contact_person_address", "Contact person address is required."),
+            ("contact_person_street", "Contact person street is required."),
+            ("contact_person_house_number", "Contact person house number is required."),
+            ("contact_person_post_code", "Contact person post code is required."),
+            ("contact_person_town", "Contact person town is required."),
             ("contact_person_email", "Contact person email is required."),
         ]
         for field_name, message in contact_required:
             if not params.get(field_name, "").strip():
                 errors.append(message)
+        if not contact_full_name(params, "contact_person"):
+            errors.append("Contact person name is required.")
+        if not contact_full_address(params, "contact_person"):
+            errors.append("Contact person address is required.")
     return errors
 
 
@@ -4294,21 +4353,7 @@ def render_contact_page(connection, params, errors=None):
     hidden_html = "".join(
         f'<input type="hidden" name="{html.escape(key)}" value="{html.escape(value)}">'
         for key, value in params.items()
-        if key not in {
-            "unit_leader_name",
-            "unit_leader_address",
-            "unit_leader_email",
-            "unit_leader_phone",
-            "contact_same_as_unit_leader",
-            "contact_person_name",
-            "contact_person_phone",
-            "contact_person_address",
-            "contact_person_email",
-            "international_commissioner_name",
-            "international_commissioner_address",
-            "international_commissioner_email",
-            "international_commissioner_phone",
-        }
+        if key not in CONTACT_RESET_KEYS
     )
     error_html = ""
     if errors:
@@ -4318,6 +4363,25 @@ def render_contact_page(connection, params, errors=None):
     is_slovenia_other_group = is_slovenia_country(params.get("origin_country", "")) and params.get("member_category", "") == "other"
     leader_label = contact_leader_label(lang, is_non_scout_group or is_slovenia_other_group)
     leader_label_lower = leader_label.lower()
+    unit_leader_first_name, unit_leader_last_name = split_contact_name(params.get("unit_leader_name", ""))
+    contact_person_first_name, contact_person_last_name = split_contact_name(params.get("contact_person_name", ""))
+    contact_same_checked = params.get("contact_same_as_unit_leader") == "on"
+    unit_leader_values = {
+        "first_name": params.get("unit_leader_first_name", unit_leader_first_name),
+        "last_name": params.get("unit_leader_last_name", unit_leader_last_name),
+        "street": params.get("unit_leader_street", params.get("unit_leader_address", "")),
+        "house_number": params.get("unit_leader_house_number", ""),
+        "post_code": params.get("unit_leader_post_code", ""),
+        "town": params.get("unit_leader_town", ""),
+    }
+    contact_person_values = {
+        "first_name": params.get("contact_person_first_name", contact_person_first_name),
+        "last_name": params.get("contact_person_last_name", contact_person_last_name),
+        "street": params.get("contact_person_street", params.get("contact_person_address", "")),
+        "house_number": params.get("contact_person_house_number", ""),
+        "post_code": params.get("contact_person_post_code", ""),
+        "town": params.get("contact_person_town", ""),
+    }
     reset_href = build_reset_href("contact", "/contact", params)
     content = f"""
     {render_reservation_steps("Contact details", lang)}
@@ -4334,15 +4398,31 @@ def render_contact_page(connection, params, errors=None):
             <h3>{html.escape(t(lang, "contact_details"))}</h3>
             <div class="contact-groups">
               <section class="contact-group">
+                <h4>{html.escape(tf(lang, "contact_leader_section", label=leader_label_lower))}</h4>
                 <div class="form-section-grid">
-                  <label class="field-span-full">
-                    {html.escape(tf(lang, "contact_name_surname", label=leader_label))}
-                    <input type="text" name="unit_leader_name" value="{html.escape(params.get('unit_leader_name', ''))}" required>
+                  <label class="field-span-2">
+                    {html.escape(t(lang, "first_name_label"))}
+                    <input type="text" name="unit_leader_first_name" value="{html.escape(unit_leader_values['first_name'])}" required>
                   </label>
                   <label class="field-span-2">
-                    {html.escape(tf(lang, "contact_address", label=leader_label))}
-                    <small>{html.escape(t(lang, "contact_address_help"))}</small>
-                    <input type="text" name="unit_leader_address" value="{html.escape(params.get('unit_leader_address', ''))}" required>
+                    {html.escape(t(lang, "surname_label"))}
+                    <input type="text" name="unit_leader_last_name" value="{html.escape(unit_leader_values['last_name'])}" required>
+                  </label>
+                  <label class="field-span-2">
+                    {html.escape(t(lang, "street_label"))}
+                    <input type="text" name="unit_leader_street" value="{html.escape(unit_leader_values['street'])}" required>
+                  </label>
+                  <label class="field-span-2">
+                    {html.escape(t(lang, "house_number_label"))}
+                    <input type="text" name="unit_leader_house_number" value="{html.escape(unit_leader_values['house_number'])}" required>
+                  </label>
+                  <label class="field-span-2">
+                    {html.escape(t(lang, "post_code_label"))}
+                    <input type="text" name="unit_leader_post_code" value="{html.escape(unit_leader_values['post_code'])}" required>
+                  </label>
+                  <label class="field-span-2">
+                    {html.escape(t(lang, "town_label"))}
+                    <input type="text" name="unit_leader_town" value="{html.escape(unit_leader_values['town'])}" required>
                   </label>
                   <label class="field-span-2">
                     {html.escape(tf(lang, "contact_email", label=leader_label))}
@@ -4355,27 +4435,43 @@ def render_contact_page(connection, params, errors=None):
                 </div>
               </section>
               <section class="contact-group">
+                <h4>{html.escape(t(lang, "contact_person_name").split(":", 1)[0])}</h4>
                 <label class="field-span-full checkbox contact-same-toggle">
-                  <input type="checkbox" name="contact_same_as_unit_leader" {"checked" if params.get('contact_same_as_unit_leader') == 'on' else ""}>
+                  <input type="checkbox" name="contact_same_as_unit_leader" {"checked" if contact_same_checked else ""}>
                   {html.escape(tf(lang, "contact_same_as", label=leader_label_lower))}
                 </label>
                 <div class="form-section-grid">
                   <label class="field-span-2">
-                    {html.escape(t(lang, "contact_person_name"))}
-                    <input type="text" name="contact_person_name" class="contact-person-field" value="{html.escape(params.get('contact_person_name', ''))}" required>
+                    {html.escape(t(lang, "first_name_label"))}
+                    <input type="text" name="contact_person_first_name" class="contact-person-field" value="{html.escape(contact_person_values['first_name'])}" required>
                   </label>
                   <label class="field-span-2">
-                    {html.escape(t(lang, "contact_phone"))}
-                    <input type="text" name="contact_person_phone" class="contact-person-field" value="{html.escape(params.get('contact_person_phone', ''))}" required>
+                    {html.escape(t(lang, "surname_label"))}
+                    <input type="text" name="contact_person_last_name" class="contact-person-field" value="{html.escape(contact_person_values['last_name'])}" required>
                   </label>
                   <label class="field-span-2">
-                    {html.escape(t(lang, "contact_person_address"))}
-                    <small>{html.escape(t(lang, "contact_address_help"))}</small>
-                    <input type="text" name="contact_person_address" class="contact-person-field" value="{html.escape(params.get('contact_person_address', ''))}" required>
+                    {html.escape(t(lang, "street_label"))}
+                    <input type="text" name="contact_person_street" class="contact-person-field" value="{html.escape(contact_person_values['street'])}" required>
+                  </label>
+                  <label class="field-span-2">
+                    {html.escape(t(lang, "house_number_label"))}
+                    <input type="text" name="contact_person_house_number" class="contact-person-field" value="{html.escape(contact_person_values['house_number'])}" required>
+                  </label>
+                  <label class="field-span-2">
+                    {html.escape(t(lang, "post_code_label"))}
+                    <input type="text" name="contact_person_post_code" class="contact-person-field" value="{html.escape(contact_person_values['post_code'])}" required>
+                  </label>
+                  <label class="field-span-2">
+                    {html.escape(t(lang, "town_label"))}
+                    <input type="text" name="contact_person_town" class="contact-person-field" value="{html.escape(contact_person_values['town'])}" required>
                   </label>
                   <label class="field-span-2">
                     {html.escape(t(lang, "contact_person_email"))}
                     <input type="email" name="contact_person_email" class="contact-person-field" value="{html.escape(params.get('contact_person_email', ''))}" required>
+                  </label>
+                  <label class="field-span-2">
+                    {html.escape(t(lang, "contact_phone"))}
+                    <input type="text" name="contact_person_phone" class="contact-person-field" value="{html.escape(params.get('contact_person_phone', ''))}" required>
                   </label>
                 </div>
               </section>
@@ -4411,8 +4507,12 @@ def render_contact_page(connection, params, errors=None):
         const form = same.closest('form');
         if (!form) return;
         const mappings = [
-          ['unit_leader_name', 'contact_person_name'],
-          ['unit_leader_address', 'contact_person_address'],
+          ['unit_leader_first_name', 'contact_person_first_name'],
+          ['unit_leader_last_name', 'contact_person_last_name'],
+          ['unit_leader_street', 'contact_person_street'],
+          ['unit_leader_house_number', 'contact_person_house_number'],
+          ['unit_leader_post_code', 'contact_person_post_code'],
+          ['unit_leader_town', 'contact_person_town'],
           ['unit_leader_email', 'contact_person_email'],
           ['unit_leader_phone', 'contact_person_phone'],
         ];
@@ -6249,14 +6349,14 @@ def validate_booking_form(connection, form, admin_mode=False):
         errors.append("Guest count must be a positive whole number.")
         guest_count = 0
 
-    unit_leader_name = form.get("unit_leader_name", "").strip()
-    unit_leader_address = form.get("unit_leader_address", "").strip()
+    unit_leader_name = contact_full_name(form, "unit_leader")
+    unit_leader_address = contact_full_address(form, "unit_leader")
     unit_leader_email = form.get("unit_leader_email", "").strip()
     unit_leader_phone = form.get("unit_leader_phone", "").strip()
     contact_same_as_unit_leader = form.get("contact_same_as_unit_leader", "") == "on"
-    contact_person_name = form.get("contact_person_name", "").strip()
+    contact_person_name = contact_full_name(form, "contact_person")
     contact_person_phone = form.get("contact_person_phone", "").strip()
-    contact_person_address = form.get("contact_person_address", "").strip()
+    contact_person_address = contact_full_address(form, "contact_person")
     contact_person_email = form.get("contact_person_email", "").strip()
     international_commissioner_name = form.get("international_commissioner_name", "").strip()
     international_commissioner_address = form.get("international_commissioner_address", "").strip()

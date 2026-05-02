@@ -498,6 +498,11 @@ main {
   padding-top: 0.35rem;
 }
 
+.contact-group h4 {
+  margin: 0.15rem 0 0.75rem;
+  font-size: 1rem;
+}
+
 .contact-same-toggle {
   margin: 0.35rem 0 0.6rem;
 }
