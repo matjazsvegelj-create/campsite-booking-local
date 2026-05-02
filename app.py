@@ -305,6 +305,8 @@ TEXTS = {
         "info_title": "Scout and group stays in one overview.",
         "info_text": "Use this first page to review the available places, practical notes, and useful documents before you continue to the date and availability step.",
         "info_continue": "Continue to period selection",
+        "info_map_heading": "Locations map",
+        "info_map_text": "Zoom in or out and select a pin to view the campsite location.",
         "info_places_heading": "Places overview",
         "info_documents_heading": "Documents and useful links",
         "info_document_rules": "House rules and camp instructions",
@@ -504,6 +506,8 @@ TEXTS = {
         "info_title": "Pregled taborniških in skupinskih nastanitev.",
         "info_text": "Na tej prvi strani so zbrane osnovne informacije o lokacijah, praktične opombe ter prostor za dokumente in uporabne povezave pred nadaljevanjem na izbiro termina.",
         "info_continue": "Nadaljuj na izbiro termina",
+        "info_map_heading": "Zemljevid lokacij",
+        "info_map_text": "Povečajte ali pomanjšajte zemljevid in izberite oznako za ogled lokacije.",
         "info_places_heading": "Pregled lokacij",
         "info_documents_heading": "Dokumenti in uporabne povezave",
         "info_document_rules": "Hišni red in navodila za taborjenje",
@@ -4514,7 +4518,17 @@ def render_gallery_admin_controls(lang, target_type, location_name, unit_name, i
     """
 
 
-def render_layout(title, content, notice="", lang="en", current_path="/", current_params=None, is_admin=False):
+def render_layout(
+    title,
+    content,
+    notice="",
+    lang="en",
+    current_path="/",
+    current_params=None,
+    is_admin=False,
+    head_extra="",
+    body_extra="",
+):
     current_params = dict(current_params or {})
     current_params.pop("lang", None)
     en_query = urlencode({"lang": "en", **current_params})
@@ -4531,6 +4545,7 @@ def render_layout(title, content, notice="", lang="en", current_path="/", curren
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{html.escape(title)}</title>
   <link rel="stylesheet" href="/static/style.css?v={style_version}">
+  {head_extra}
 </head>
 <body>
   <header class="site-header">
@@ -4637,9 +4652,87 @@ def render_layout(title, content, notice="", lang="en", current_path="/", curren
     }}
   }})();
   </script>
+  {body_extra}
 </body>
 </html>
 """
+
+
+INFO_MAP_LOCATIONS = [
+    ("Laski rovt ZTS", 46.267851, 13.894797),
+    ("Laski rovt ZR", 46.267748, 13.896052),
+    ("Laski rovt MB", 46.267708, 13.892434),
+    ("Ukanc camping area", 46.280863, 13.850101),
+    ("Ukanc forest school", 46.280293, 13.850284),
+    ("Baredi camping area", 45.517479, 13.683167),
+    ("Radlje ob Dravi camping area", 46.602909, 15.220587),
+]
+
+
+def render_info_map_section(lang):
+    locations_json = json.dumps(
+        [{"name": name, "lat": lat, "lng": lng} for name, lat, lng in INFO_MAP_LOCATIONS],
+        ensure_ascii=False,
+    )
+    return f"""
+    <section class="panel info-map-panel">
+      <div class="info-map-heading">
+        <h2>{html.escape(t(lang, "info_map_heading"))}</h2>
+        <p class="muted">{html.escape(t(lang, "info_map_text"))}</p>
+      </div>
+      <div id="slovenia-locations-map" class="info-map" data-locations='{html.escape(locations_json, quote=True)}'></div>
+    </section>
+    """
+
+
+def render_info_map_assets():
+    head_extra = """
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIINfQYp8v9ZbM6K5EGV9F4YQw8QDQ5C8Q="
+    crossorigin="">
+"""
+    body_extra = """
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""></script>
+  <script>
+  (() => {
+    const mapElement = document.getElementById('slovenia-locations-map');
+    if (!mapElement || typeof L === 'undefined') return;
+
+    const locations = JSON.parse(mapElement.dataset.locations || '[]');
+    const map = L.map(mapElement, {
+      scrollWheelZoom: false,
+      zoomControl: true,
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors',
+    }).addTo(map);
+
+    const bounds = [];
+    locations.forEach((location) => {
+      const marker = L.marker([location.lat, location.lng]).addTo(map);
+      marker.bindPopup(`<strong>${location.name}</strong><br>${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`);
+      marker.bindTooltip(location.name, {
+        direction: 'top',
+        offset: [0, -10],
+        opacity: 0.95,
+        permanent: true,
+      });
+      bounds.push([location.lat, location.lng]);
+    });
+
+    if (bounds.length) {
+      map.fitBounds(bounds, { padding: [34, 34] });
+    } else {
+      map.setView([46.1512, 14.9955], 8);
+    }
+  })();
+  </script>
+"""
+    return head_extra, body_extra
 
 
 def render_information_page(connection, params):
@@ -4668,6 +4761,7 @@ def render_information_page(connection, params):
       <p>{html.escape(t(lang, "info_text"))}</p>
       <p><a class="button" href="/period?lang={lang}">{html.escape(t(lang, "info_continue"))}</a></p>
     </section>
+    {render_info_map_section(lang)}
     <section class="panel">
       <h2>{html.escape(t(lang, "info_places_heading"))}</h2>
       <div class="info-place-grid">
@@ -4684,7 +4778,17 @@ def render_information_page(connection, params):
       <p class="muted">{html.escape(t(lang, "info_document_note"))}</p>
     </section>
     """
-    return render_layout(t(lang, "information"), content, notice=notice, lang=lang, current_path="/", current_params=params)
+    map_head_extra, map_body_extra = render_info_map_assets()
+    return render_layout(
+        t(lang, "information"),
+        content,
+        notice=notice,
+        lang=lang,
+        current_path="/",
+        current_params=params,
+        head_extra=map_head_extra,
+        body_extra=map_body_extra,
+    )
 
 
 def render_search_page(connection, params, errors=None):
