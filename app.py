@@ -4662,7 +4662,7 @@ INFO_MAP_LOCATIONS = [
     ("Laski rovt ZTS", 46.267851, 13.894797, True, 0, -34, ""),
     ("Laski rovt ZR", 46.267620, 13.895770, True, 0, -34, ""),
     ("Laski rovt MB", 46.267708, 13.892434, True, 0, -34, ""),
-    ("Taborni prostor Ukanc", 46.280863, 13.850101, True, 0, -34, ""),
+    ("Taborni prostor Ukanc", 46.280863, 13.850101, True, 160, 190, "map-popup--side-left"),
     ("Gozdna sola Ukanc", 46.280293, 13.850284, True, 0, -34, ""),
     ("Taborni prostor Baredi", 45.517479, 13.683167, False, 0, -34, ""),
     ("Taborni prostor Radlje ob Dravi", 46.602909, 15.220587, False, 160, 190, "map-popup--side-left"),
