@@ -4659,19 +4659,28 @@ def render_layout(
 
 
 INFO_MAP_LOCATIONS = [
-    ("Laski rovt ZTS", 46.267851, 13.894797),
-    ("Laski rovt ZR", 46.267620, 13.895770),
-    ("Laski rovt MB", 46.267708, 13.892434),
-    ("Ukanc camping area", 46.280863, 13.850101),
-    ("Ukanc forest school", 46.280293, 13.850284),
-    ("Baredi camping area", 45.517479, 13.683167),
-    ("Radlje ob Dravi camping area", 46.602909, 15.220587),
+    ("Laski rovt ZTS", 46.267851, 13.894797, True),
+    ("Laski rovt ZR", 46.267620, 13.895770, True),
+    ("Laski rovt MB", 46.267708, 13.892434, True),
+    ("Taborni prostor Ukanc", 46.280863, 13.850101, True),
+    ("Gozdna sola Ukanc", 46.280293, 13.850284, True),
+    ("Taborni prostor Baredi", 45.517479, 13.683167, False),
+    ("Taborni prostor Radlje ob Dravi", 46.602909, 15.220587, False),
 ]
 
 
 def render_info_map_section(lang):
     locations_json = json.dumps(
-        [{"name": name, "lat": lat, "lng": lng} for name, lat, lng in INFO_MAP_LOCATIONS],
+        [
+            {
+                "name": display_location_name(location_name, lang),
+                "summary": get_location_content(location_name, lang).get("summary", ""),
+                "lat": lat,
+                "lng": lng,
+                "requiresZoom": requires_zoom,
+            }
+            for location_name, lat, lng, requires_zoom in INFO_MAP_LOCATIONS
+        ],
         ensure_ascii=False,
     )
     return f"""
@@ -4713,16 +4722,39 @@ def render_info_map_assets():
       attribution: '&copy; OpenStreetMap contributors',
     }).addTo(map);
 
+    const closeLocationPopupZoom = 14;
+    const escapeHtml = (value) => String(value || '').replace(/[&<>"']/g, (character) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;',
+    }[character]));
+    const openLocationPopup = (marker, location) => {
+      if (location.requiresZoom && map.getZoom() < closeLocationPopupZoom) return;
+      marker.openPopup();
+    };
     const bounds = [];
     locations.forEach((location) => {
       const marker = L.marker([location.lat, location.lng]).addTo(map);
-      marker.bindPopup(`<strong>${location.name}</strong><br>${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`);
+      marker.bindPopup(`
+        <strong>${escapeHtml(location.name)}</strong>
+        <span>${escapeHtml(location.summary)}</span>
+      `, {
+        closeButton: false,
+        autoPan: false,
+      });
       marker.bindTooltip(location.name, {
         direction: 'top',
         offset: [0, -10],
         opacity: 0.95,
         permanent: true,
       });
+      marker.on('mouseover', () => openLocationPopup(marker, location));
+      marker.on('focus', () => openLocationPopup(marker, location));
+      marker.on('click', () => openLocationPopup(marker, location));
+      marker.on('mouseout', () => marker.closePopup());
+      marker.on('blur', () => marker.closePopup());
       bounds.push([location.lat, location.lng]);
     });
 

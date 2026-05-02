@@ -236,7 +236,27 @@ main {
 }
 
 .info-map .leaflet-popup-content {
+  display: grid;
+  gap: 0.4rem;
   font-family: inherit;
+  font-size: 0.92rem;
+  line-height: 1.3;
+  margin: 0.85rem 0.95rem;
+  max-width: 18rem;
+}
+
+.info-map .leaflet-popup-content strong,
+.info-map .leaflet-popup-content span {
+  display: block;
+}
+
+.info-map .leaflet-popup-content strong {
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.info-map .leaflet-popup-content span {
+  color: var(--muted);
 }
 
 .info-document-grid {
