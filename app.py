@@ -4675,6 +4675,9 @@ def render_info_map_section(lang):
             {
                 "name": display_location_name(location_name, lang),
                 "summary": get_location_content(location_name, lang).get("summary", ""),
+                "highlights": get_location_content(location_name, lang).get("highlights", []),
+                "seasonLabel": t(lang, "location_season_label"),
+                "season": get_location_content(location_name, lang).get("season", ""),
                 "lat": lat,
                 "lng": lng,
                 "requiresZoom": requires_zoom,
@@ -4734,13 +4737,26 @@ def render_info_map_assets():
       if (location.requiresZoom && map.getZoom() < closeLocationPopupZoom) return;
       marker.openPopup();
     };
+    const renderLocationPopup = (location) => {
+      const highlights = Array.isArray(location.highlights)
+        ? location.highlights.map((item) => `<li>${escapeHtml(item)}</li>`).join('')
+        : '';
+      const season = location.season
+        ? `<p class="map-popup-season"><strong>${escapeHtml(location.seasonLabel)}:</strong> ${escapeHtml(location.season)}</p>`
+        : '';
+      return `
+        <article class="map-location-popup">
+          <h3>${escapeHtml(location.name)}</h3>
+          <p>${escapeHtml(location.summary)}</p>
+          ${highlights ? `<ul>${highlights}</ul>` : ''}
+          ${season}
+        </article>
+      `;
+    };
     const bounds = [];
     locations.forEach((location) => {
       const marker = L.marker([location.lat, location.lng]).addTo(map);
-      marker.bindPopup(`
-        <strong>${escapeHtml(location.name)}</strong>
-        <span>${escapeHtml(location.summary)}</span>
-      `, {
+      marker.bindPopup(renderLocationPopup(location), {
         closeButton: false,
         autoPan: false,
       });
