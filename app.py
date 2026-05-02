@@ -4660,7 +4660,7 @@ def render_layout(
 
 INFO_MAP_LOCATIONS = [
     ("Laski rovt ZTS", 46.267851, 13.894797),
-    ("Laski rovt ZR", 46.267748, 13.896052),
+    ("Laski rovt ZR", 46.267620, 13.895770),
     ("Laski rovt MB", 46.267708, 13.892434),
     ("Ukanc camping area", 46.280863, 13.850101),
     ("Ukanc forest school", 46.280293, 13.850284),
