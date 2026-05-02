@@ -4659,13 +4659,13 @@ def render_layout(
 
 
 INFO_MAP_LOCATIONS = [
-    ("Laski rovt ZTS", 46.267851, 13.894797, True),
-    ("Laski rovt ZR", 46.267620, 13.895770, True),
-    ("Laski rovt MB", 46.267708, 13.892434, True),
-    ("Taborni prostor Ukanc", 46.280863, 13.850101, True),
-    ("Gozdna sola Ukanc", 46.280293, 13.850284, True),
-    ("Taborni prostor Baredi", 45.517479, 13.683167, False),
-    ("Taborni prostor Radlje ob Dravi", 46.602909, 15.220587, False),
+    ("Laski rovt ZTS", 46.267851, 13.894797, True, 0, -34),
+    ("Laski rovt ZR", 46.267620, 13.895770, True, 0, -34),
+    ("Laski rovt MB", 46.267708, 13.892434, True, 0, -34),
+    ("Taborni prostor Ukanc", 46.280863, 13.850101, True, 0, -34),
+    ("Gozdna sola Ukanc", 46.280293, 13.850284, True, 0, -34),
+    ("Taborni prostor Baredi", 45.517479, 13.683167, False, 0, -34),
+    ("Taborni prostor Radlje ob Dravi", 46.602909, 15.220587, False, 170, 150),
 ]
 
 
@@ -4681,8 +4681,9 @@ def render_info_map_section(lang):
                 "lat": lat,
                 "lng": lng,
                 "requiresZoom": requires_zoom,
+                "popupOffset": [popup_offset_x, popup_offset_y],
             }
-            for location_name, lat, lng, requires_zoom in INFO_MAP_LOCATIONS
+            for location_name, lat, lng, requires_zoom, popup_offset_x, popup_offset_y in INFO_MAP_LOCATIONS
         ],
         ensure_ascii=False,
     )
@@ -4758,7 +4759,10 @@ def render_info_map_assets():
       const marker = L.marker([location.lat, location.lng]).addTo(map);
       marker.bindPopup(renderLocationPopup(location), {
         closeButton: false,
-        autoPan: false,
+        autoPan: true,
+        autoPanPaddingTopLeft: [24, 140],
+        autoPanPaddingBottomRight: [24, 24],
+        offset: location.popupOffset || [0, -34],
       });
       marker.bindTooltip(location.name, {
         direction: 'top',
