@@ -5105,7 +5105,7 @@ def render_search_page(connection, params, errors=None):
                 unit_summaries.append(
                     f"""
                     <article class="unit-card unit-card--summary">
-                      <h3>{html.escape(unit['name'])}</h3>
+                      <h3>{html.escape(display_unit_name(unit['name'], lang))}</h3>
                       {unit_gallery_html}
                   <p>{html.escape(tf(lang, "capacity_guests", count=unit["max_guests"]))}</p>
                       {price_line}
