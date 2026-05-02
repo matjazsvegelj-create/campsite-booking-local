@@ -288,6 +288,7 @@ TEXTS = {
         "contact_address_help": "street with house number, town, zip code",
         "contact_email": "{label} e-mail",
         "contact_phone": "Reachable telephone number",
+        "phone_country_code_note": "Please include the country code, e.g. +xxx (phone number).",
         "contact_same_as": "Same as {label}",
         "contact_person_name": "Contact person: name, surname",
         "contact_person_address": "Contact person address",
@@ -510,6 +511,7 @@ TEXTS = {
         "contact_address_help": "ulica s hišno številko, kraj, poštna številka",
         "contact_email": "{label} e-pošta",
         "contact_phone": "Dosegljiva telefonska številka",
+        "phone_country_code_note": "Prosimo, dodajte tudi klicno številko države, npr. +xxx (telefonska številka).",
         "contact_same_as": "Enako kot {label}",
         "contact_person_name": "Kontaktna oseba: ime in priimek",
         "contact_person_address": "Naslov kontaktne osebe",
@@ -4403,6 +4405,7 @@ def render_contact_page(connection, params, errors=None):
                   </label>
                   <label class="field-span-full">
                     {html.escape(t(lang, "international_commissioner_phone"))}
+                    <small>{html.escape(t(lang, "phone_country_code_note"))}</small>
                     <input type="text" name="international_commissioner_phone" value="{html.escape(params.get('international_commissioner_phone', ''))}">
                   </label>
                 </div>
@@ -4456,6 +4459,7 @@ def render_contact_page(connection, params, errors=None):
                   </label>
                   <label class="field-span-2">
                     {html.escape(t(lang, "contact_phone"))}
+                    <small>{html.escape(t(lang, "phone_country_code_note"))}</small>
                     <input type="text" name="unit_leader_phone" value="{html.escape(params.get('unit_leader_phone', ''))}" required>
                   </label>
                 </div>
@@ -4497,6 +4501,7 @@ def render_contact_page(connection, params, errors=None):
                   </label>
                   <label class="field-span-2">
                     {html.escape(t(lang, "contact_phone"))}
+                    <small>{html.escape(t(lang, "phone_country_code_note"))}</small>
                     <input type="text" name="contact_person_phone" class="contact-person-field" value="{html.escape(params.get('contact_person_phone', ''))}" required>
                   </label>
                 </div>
