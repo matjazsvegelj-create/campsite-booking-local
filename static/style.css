@@ -1329,6 +1329,11 @@ button:hover,
   width: auto;
 }
 
+.rental-extra--half-day small {
+  grid-column: 1 / -1;
+  color: var(--muted);
+}
+
 .rental-decide-later {
   display: flex;
   gap: 0.45rem;

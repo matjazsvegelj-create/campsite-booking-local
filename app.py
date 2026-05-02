@@ -280,6 +280,7 @@ TEXTS = {
         "rental_half_day_preference": "Preferred half-day time",
         "rental_preferred_morning": "Preferred morning",
         "rental_preferred_afternoon": "Preferred afternoon",
+        "rental_half_day_comment_note": "If you rent for more than one day and preferred times differ, write the details in the rental comments section below.",
         "rental_add_picture": "Add picture for {label}",
         "rental_available_selected_dates": "Available for selected dates: {count}",
         "contact_details": "Contact details",
@@ -506,6 +507,7 @@ TEXTS = {
         "rental_half_day_preference": "Zaželeni termin poldnevnega najema",
         "rental_preferred_morning": "Zaželeno dopoldan",
         "rental_preferred_afternoon": "Zaželeno popoldan",
+        "rental_half_day_comment_note": "Če izposoja traja več kot en dan in se zaželeni termini razlikujejo, podrobnosti napišite v komentarje za izposojo spodaj.",
         "rental_add_picture": "Dodaj sliko za {label}",
         "rental_available_selected_dates": "Na voljo za izbrane datume: {count}",
         "contact_details": "Kontaktni podatki",
@@ -1078,6 +1080,7 @@ def render_rental_half_day_preference(item, params, lang, is_disabled=False):
         <input type="checkbox" class="rental-half-day-preference" name="rental_{item_key}_half_day_preference" value="afternoon" {"checked" if selected == "afternoon" else ""} {"disabled" if is_disabled else ""}>
         <span>{html.escape(t(lang, "rental_preferred_afternoon"))}</span>
       </label>
+      <small>{html.escape(t(lang, "rental_half_day_comment_note"))}</small>
     </div>
     """
 
