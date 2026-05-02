@@ -4659,13 +4659,13 @@ def render_layout(
 
 
 INFO_MAP_LOCATIONS = [
-    ("Laski rovt ZTS", 46.267851, 13.894797, True, 0, -34, ""),
-    ("Laski rovt ZR", 46.267620, 13.895770, True, 0, -34, ""),
-    ("Laski rovt MB", 46.267708, 13.892434, True, 0, -34, ""),
-    ("Taborni prostor Ukanc", 46.280863, 13.850101, True, 160, 190, "map-popup--side-left"),
-    ("Gozdna sola Ukanc", 46.280293, 13.850284, True, 0, -34, ""),
-    ("Taborni prostor Baredi", 45.517479, 13.683167, False, 0, -34, ""),
-    ("Taborni prostor Radlje ob Dravi", 46.602909, 15.220587, False, 160, 190, "map-popup--side-left"),
+    ("Laski rovt ZTS", 46.267851, 13.894797, True),
+    ("Laski rovt ZR", 46.267620, 13.895770, True),
+    ("Laski rovt MB", 46.267708, 13.892434, True),
+    ("Taborni prostor Ukanc", 46.280863, 13.850101, True),
+    ("Gozdna sola Ukanc", 46.280293, 13.850284, True),
+    ("Taborni prostor Baredi", 45.517479, 13.683167, False),
+    ("Taborni prostor Radlje ob Dravi", 46.602909, 15.220587, False),
 ]
 
 
@@ -4681,10 +4681,8 @@ def render_info_map_section(lang):
                 "lat": lat,
                 "lng": lng,
                 "requiresZoom": requires_zoom,
-                "popupOffset": [popup_offset_x, popup_offset_y],
-                "popupClass": popup_class,
             }
-            for location_name, lat, lng, requires_zoom, popup_offset_x, popup_offset_y, popup_class in INFO_MAP_LOCATIONS
+            for location_name, lat, lng, requires_zoom in INFO_MAP_LOCATIONS
         ],
         ensure_ascii=False,
     )
@@ -4737,7 +4735,39 @@ def render_info_map_assets():
     }[character]));
     const openLocationPopup = (marker, location) => {
       if (location.requiresZoom && map.getZoom() < closeLocationPopupZoom) return;
+      marker.bindPopup(renderLocationPopup(location), getPopupPlacement(location));
       marker.openPopup();
+    };
+    const getPopupPlacement = (location) => {
+      const mapSize = map.getSize();
+      const markerPoint = map.latLngToContainerPoint([location.lat, location.lng]);
+      const popupWidth = Math.min(360, Math.max(280, mapSize.x * 0.48));
+      const popupHeight = 300;
+      const markerGap = 42;
+      const space = {
+        top: markerPoint.y,
+        right: mapSize.x - markerPoint.x,
+        bottom: mapSize.y - markerPoint.y,
+        left: markerPoint.x,
+      };
+      const side = [
+        ['top', space.top - popupHeight],
+        ['right', space.right - popupWidth],
+        ['bottom', space.bottom - popupHeight],
+        ['left', space.left - popupWidth],
+      ].sort((a, b) => b[1] - a[1])[0][0];
+      const placements = {
+        top: { offset: [0, -markerGap], className: 'map-popup--top' },
+        right: { offset: [Math.round(popupWidth / 2) + markerGap, 12], className: 'map-popup--right' },
+        bottom: { offset: [0, popupHeight + markerGap], className: 'map-popup--bottom' },
+        left: { offset: [-(Math.round(popupWidth / 2) + markerGap), 12], className: 'map-popup--left' },
+      };
+      return {
+        closeButton: false,
+        autoPan: false,
+        maxWidth: popupWidth,
+        ...placements[side],
+      };
     };
     const renderLocationPopup = (location) => {
       const highlights = Array.isArray(location.highlights)
@@ -4758,12 +4788,6 @@ def render_info_map_assets():
     const bounds = [];
     locations.forEach((location) => {
       const marker = L.marker([location.lat, location.lng]).addTo(map);
-      marker.bindPopup(renderLocationPopup(location), {
-        closeButton: false,
-        autoPan: false,
-        offset: location.popupOffset || [0, -34],
-        className: location.popupClass || '',
-      });
       marker.bindTooltip(location.name, {
         direction: 'top',
         offset: [0, -10],
