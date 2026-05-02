@@ -503,9 +503,9 @@ TEXTS = {
         "rental_days_count": "{count} dni",
         "rental_day_count": "{count} dan",
         "rental_date_later": "Točen datum bo določen kasneje",
-        "rental_half_day_preference": "Želeni termin poldnevnega najema",
-        "rental_preferred_morning": "Želeno dopoldan",
-        "rental_preferred_afternoon": "Želeno popoldan",
+        "rental_half_day_preference": "Zaželeni termin poldnevnega najema",
+        "rental_preferred_morning": "Zaželeno dopoldan",
+        "rental_preferred_afternoon": "Zaželeno popoldan",
         "rental_add_picture": "Dodaj sliko za {label}",
         "rental_available_selected_dates": "Na voljo za izbrane datume: {count}",
         "contact_details": "Kontaktni podatki",
@@ -767,19 +767,19 @@ RENTAL_ITEM_TRANSLATIONS = {
         "cooler_refrigerator": {"label": "Hladilnik", "note": "najem na bivanje, največ 1 na skupino"},
         "tent": {"label": "Šotor", "note": "najem na bivanje, največ 10 na vseh lokacijah"},
         "table_set": {"label": "Komplet miz in dveh klopi", "note": "najem na dan na komplet, največ 10 na skupino. Če potrebujete več kot 10, dodajte v komentar spodaj."},
-        "small_canoe_half_day": {"label": "Mali kanu (do 3 osebe)", "note": "dopoldan ali popoldan, prevzem pri Gozdni šoli Ukanc (Ukanc 3), največ 3"},
-        "small_canoe_all_day": {"label": "Mali kanu (do 3 osebe)", "note": "cel dan, prevzem pri Gozdni šoli Ukanc (Ukanc 3), največ 3"},
-        "large_canoe_half_day": {"label": "Veliki kanu (do 10 oseb)", "note": "dopoldan ali popoldan, prevzem pri Gozdni šoli Ukanc (Ukanc 3), največ 2"},
-        "large_canoe_all_day": {"label": "Veliki kanu (do 10 oseb)", "note": "cel dan, prevzem pri Gozdni šoli Ukanc (Ukanc 3), največ 2"},
-        "bike_half_day": {"label": "Kolo", "note": "dopoldan ali popoldan, prevzem pri Gozdni šoli Ukanc (Ukanc 3), največ 15"},
-        "bike_all_day": {"label": "Kolo", "note": "cel dan, prevzem pri Gozdni šoli Ukanc (Ukanc 3), največ 15"},
-        "electric_bike_half_day": {"label": "Električno kolo", "note": "poldnevni najem, prevzem pri Gozdni šoli Ukanc (Ukanc 3), največ 10", "disabled_note": "še ni na voljo"},
-        "electric_bike_all_day": {"label": "Električno kolo", "note": "celodnevni najem, prevzem pri Gozdni šoli Ukanc (Ukanc 3), največ 10", "disabled_note": "še ni na voljo"},
+        "small_canoe_half_day": {"label": "Mali kanu (do 3 osebe)", "note": "dopoldan ali popoldan, prevzem in uporaba pri Gozdni šoli Ukanc (Ukanc 3), največ 3"},
+        "small_canoe_all_day": {"label": "Mali kanu (do 3 osebe)", "note": "cel dan, prevzem in uporaba pri Gozdni šoli Ukanc (Ukanc 3), največ 3"},
+        "large_canoe_half_day": {"label": "Veliki kanu (do 10 oseb)", "note": "dopoldan ali popoldan, prevzem in uporaba pri Gozdni šoli Ukanc (Ukanc 3), največ 2"},
+        "large_canoe_all_day": {"label": "Veliki kanu (do 10 oseb)", "note": "cel dan, prevzem in uporaba pri Gozdni šoli Ukanc (Ukanc 3), največ 2"},
+        "bike_half_day": {"label": "Kolo", "note": "dopoldan ali popoldan, prevzem in uporaba pri Gozdni šoli Ukanc (Ukanc 3), največ 15"},
+        "bike_all_day": {"label": "Kolo", "note": "cel dan, prevzem in uporaba pri Gozdni šoli Ukanc (Ukanc 3), največ 15"},
+        "electric_bike_half_day": {"label": "Električno kolo", "note": "poldnevni najem, prevzem in uporaba pri Gozdni šoli Ukanc (Ukanc 3), največ 10", "disabled_note": "še ni na voljo"},
+        "electric_bike_all_day": {"label": "Električno kolo", "note": "celodnevni najem, prevzem in uporaba pri Gozdni šoli Ukanc (Ukanc 3), največ 10", "disabled_note": "še ni na voljo"},
         "sup_all_day": {"label": "SUP", "note": "cel dan, največ 2"},
-        "bow_half_day": {"label": "Lok", "note": "dopoldan ali popoldan, puščice in tarča vključene, prevzem pri Gozdni šoli Ukanc (Ukanc 3), največ 2"},
-        "bow_all_day": {"label": "Lok", "note": "cel dan, puščice in tarča vključene, prevzem pri Gozdni šoli Ukanc (Ukanc 3), največ 2"},
-        "air_rifle_half_day": {"label": "Zračna puška", "note": "dopoldan ali popoldan, naboji in tarča vključeni, prevzem pri Gozdni šoli Ukanc (Ukanc 3), največ 1"},
-        "air_rifle_all_day": {"label": "Zračna puška", "note": "cel dan, naboji in tarča vključeni, prevzem pri Gozdni šoli Ukanc (Ukanc 3), največ 1"},
+        "bow_half_day": {"label": "Lok", "note": "dopoldan ali popoldan, puščice in tarča vključene, prevzem in uporaba pri Gozdni šoli Ukanc (Ukanc 3), največ 2"},
+        "bow_all_day": {"label": "Lok", "note": "cel dan, puščice in tarča vključene, prevzem in uporaba pri Gozdni šoli Ukanc (Ukanc 3), največ 2"},
+        "air_rifle_half_day": {"label": "Zračna puška", "note": "dopoldan ali popoldan, naboji in tarča vključeni, prevzem in uporaba pri Gozdni šoli Ukanc (Ukanc 3), največ 1"},
+        "air_rifle_all_day": {"label": "Zračna puška", "note": "cel dan, naboji in tarča vključeni, prevzem in uporaba pri Gozdni šoli Ukanc (Ukanc 3), največ 1"},
         "firewood": {"label": "Drva", "note": "osnovna enota je 1 m3"},
         "pioneering_wood": {"label": "Les za pionirske projekte", "note": "ob izbiri navedite koliko kosov in približno dolžino, največ 50 kosov"},
     }
@@ -1949,7 +1949,7 @@ def render_rental_item_row(item, params, lang, admin_mode, return_to, stay_dates
         )}
         {'' if is_disabled else (render_rental_selected_dates_picker(item, params, stay_dates, lang) if rental_uses_day_count(item) else '')}
       </label>
-      {'' if is_disabled else render_rental_half_day_preference(item, params, lang, is_disabled)}
+      {render_rental_half_day_preference(item, params, lang, is_disabled)}
       {(
         '<div class="rental-extra">'
         + (

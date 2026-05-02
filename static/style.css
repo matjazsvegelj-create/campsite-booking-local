@@ -1302,10 +1302,17 @@ button:hover,
   flex-wrap: wrap;
   gap: 0.55rem 1rem;
   align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
 }
 
 .rental-extra--half-day strong {
   color: var(--muted);
+  flex-basis: 100%;
 }
 
 .rental-extra--half-day label {
