@@ -4659,13 +4659,13 @@ def render_layout(
 
 
 INFO_MAP_LOCATIONS = [
-    ("Laski rovt ZTS", 46.267851, 13.894797, True, 0, -34),
-    ("Laski rovt ZR", 46.267620, 13.895770, True, 0, -34),
-    ("Laski rovt MB", 46.267708, 13.892434, True, 0, -34),
-    ("Taborni prostor Ukanc", 46.280863, 13.850101, True, 0, -34),
-    ("Gozdna sola Ukanc", 46.280293, 13.850284, True, 0, -34),
-    ("Taborni prostor Baredi", 45.517479, 13.683167, False, 0, -34),
-    ("Taborni prostor Radlje ob Dravi", 46.602909, 15.220587, False, 160, 190),
+    ("Laski rovt ZTS", 46.267851, 13.894797, True, 0, -34, ""),
+    ("Laski rovt ZR", 46.267620, 13.895770, True, 0, -34, ""),
+    ("Laski rovt MB", 46.267708, 13.892434, True, 0, -34, ""),
+    ("Taborni prostor Ukanc", 46.280863, 13.850101, True, 0, -34, ""),
+    ("Gozdna sola Ukanc", 46.280293, 13.850284, True, 0, -34, ""),
+    ("Taborni prostor Baredi", 45.517479, 13.683167, False, 0, -34, ""),
+    ("Taborni prostor Radlje ob Dravi", 46.602909, 15.220587, False, 160, 190, "map-popup--side-left"),
 ]
 
 
@@ -4682,8 +4682,9 @@ def render_info_map_section(lang):
                 "lng": lng,
                 "requiresZoom": requires_zoom,
                 "popupOffset": [popup_offset_x, popup_offset_y],
+                "popupClass": popup_class,
             }
-            for location_name, lat, lng, requires_zoom, popup_offset_x, popup_offset_y in INFO_MAP_LOCATIONS
+            for location_name, lat, lng, requires_zoom, popup_offset_x, popup_offset_y, popup_class in INFO_MAP_LOCATIONS
         ],
         ensure_ascii=False,
     )
@@ -4761,6 +4762,7 @@ def render_info_map_assets():
         closeButton: false,
         autoPan: false,
         offset: location.popupOffset || [0, -34],
+        className: location.popupClass || '',
       });
       marker.bindTooltip(location.name, {
         direction: 'top',

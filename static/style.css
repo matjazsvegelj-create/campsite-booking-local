@@ -274,6 +274,21 @@ main {
   color: var(--muted);
 }
 
+.info-map .map-popup--side-left .leaflet-popup-tip-container {
+  top: 50%;
+  bottom: auto;
+  left: -20px;
+  width: 20px;
+  height: 40px;
+  margin-top: -20px;
+  margin-left: 0;
+}
+
+.info-map .map-popup--side-left .leaflet-popup-tip {
+  margin: 10px 0 0 11px;
+  transform: rotate(135deg);
+}
+
 .info-document-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
