@@ -48,12 +48,12 @@ LOCATION_CONTENT = {
     "Laski rovt ZTS": {
         "en": {
             "summary": "A large summer campsite in Bohinj with three subcamps for scout groups that want flexible layouts and fast access to the lake area.",
-            "highlights": ["Up to 125 guests across 3 subcamps", "Summer season location", "Best for larger group camps"],
+            "highlights": ["Up to 125 guests together across 3 subcamps. If your group has that many guests, you must reserve each subcamp separately.", "Summer season location", "Best for larger group camps"],
             "season": "Open from 15 May to 15 September",
         },
         "sl": {
             "summary": "Velik poletni taborni prostor v Bohinju s tremi podtabori za skupine, ki potrebujejo prilagodljivo razporeditev in hiter dostop do jezerskega območja.",
-            "highlights": ["Do 125 gostov v 3 podtaborih", "Lokacija za poletno sezono", "Primerno za večje tabore"],
+            "highlights": ["Do 125 gostov skupaj v 3 podtaborih. V kolikor vas je toliko, morate rezervirati vsak podtabor posebej.", "Lokacija za poletno sezono", "Primerno za večje tabore"],
             "season": "Odprto od 15. maja do 15. septembra",
         },
     },
@@ -209,6 +209,7 @@ TEXTS = {
         "total_label": "Total",
         "section_total_note": "Must match guests from previous step: {count}",
         "tourist_tax": "Tourist tax",
+        "tourist_tax_exemption_note": "Tourist tax exemption: the group can be excused from paying tourist tax if it provides proof of being an NGO. An official document must be sent.",
         "back": "Back",
         "reset_this_page": "Reset this page",
         "media_logout": "Media logout",
@@ -425,6 +426,7 @@ TEXTS = {
         "total_label": "Skupaj",
         "section_total_note": "Mora ustrezati številu gostov iz prejšnjega koraka: {count}",
         "tourist_tax": "Turistična taksa",
+        "tourist_tax_exemption_note": "Oprostitev turistične takse: skupina je lahko oproščena plačila turistične takse, če predloži dokazilo, da je nevladna organizacija. Poslati mora uradni dokument.",
         "back": "Nazaj",
         "reset_this_page": "Ponastavi to stran",
         "media_logout": "Odjava medijskih orodij",
@@ -1545,7 +1547,7 @@ def build_summary_breakdown(connection, unit, check_in, check_out, guest_count, 
     }
 
 
-def render_breakdown_table(breakdown):
+def render_breakdown_table(breakdown, lang="en"):
     row_html = []
     for row in breakdown["rows"]:
         note_cell = f'<td>{html.escape(row.get("note", ""))}</td>'
@@ -1607,6 +1609,7 @@ def render_breakdown_table(breakdown):
         </tbody>
       </table>
     </div>
+    {'<p class="tourist-tax-note"><strong>' + html.escape(t(lang, "tourist_tax_exemption_note")) + '</strong></p>' if any(row["label"].startswith("Tourist tax") for row in breakdown["rows"]) else ''}
     """
 
 
@@ -4915,7 +4918,7 @@ def render_information_page(connection, params):
       </div>
       <div class="info-document-group">
         <h3>{html.escape(t(lang, "info_document_other_heading"))}</h3>
-        <div class="info-document-grid">
+        <div class="info-document-grid info-document-grid--other">
           <a href="mailto:tc.bohinj@taborniki.si" onclick="alert('{html.escape(t(lang, "info_document_contact_notice"), quote=True)}')">{html.escape(t(lang, "info_document_contact"))}</a>
           <a href="/static/documents/ld-izola-program-ang.pdf" target="_blank" rel="noopener">{html.escape(t(lang, "info_document_other_izola"))}</a>
           <a href="/static/documents/list-of-participants-gs-zts.xlsx" target="_blank" rel="noopener">{html.escape(t(lang, "info_document_other_participants"))}</a>
@@ -5977,7 +5980,7 @@ def render_booking_page(connection, params, errors=None):
     </section>
     <section class="panel">
       <h2>Calculation</h2>
-      {render_breakdown_table(breakdown)}
+      {render_breakdown_table(breakdown, lang)}
     </section>
     <section class="panel">
       <form method="post" action="/book" class="booking-form summary-form">
@@ -6043,7 +6046,7 @@ def build_booking_email_text(payload):
     details = summary["details_data"]
     breakdown = summary["breakdown"]
     detail_blocks = build_submitted_group_details_html(details, "en")
-    breakdown_table = render_breakdown_table(breakdown)
+    breakdown_table = render_breakdown_table(breakdown, "en")
     return f"""
 <html>
   <body style="font-family: Georgia, 'Times New Roman', serif; color: #203127; background: #f3efe4; margin: 0; padding: 24px;">
@@ -6482,7 +6485,7 @@ def render_admin_page(connection, notice="", filters=None):
                       </section>
                       <section class="panel">
                         <h2>{html.escape(t(lang, "admin_calculation"))}</h2>
-                        {render_breakdown_table(booking_view['breakdown'])}
+                        {render_breakdown_table(booking_view['breakdown'], lang)}
                       </section>
                     </div>
                   </div>
