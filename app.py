@@ -190,7 +190,7 @@ TEXTS = {
         "group_details": "Group details",
         "group_details_intro": "Please add the group structure below and continue with the contact information after that.",
         "sections_heading": "Sections",
-        "sections_intro": "Please tick all that apply and add the number of people for each selected section.",
+        "sections_intro": "Add the number of people in each age category. These counts are also used for tourist tax.",
         "scout_unit_details": "Scout unit details",
         "taborniki_unit_details": "Scout unit details",
         "national_scout_organization": "National scout organization",
@@ -208,6 +208,7 @@ TEXTS = {
         "children_label": "Children",
         "total_label": "Total",
         "section_total_note": "Must match guests from previous step: {count}",
+        "tourist_tax": "Tourist tax",
         "back": "Back",
         "reset_this_page": "Reset this page",
         "media_logout": "Media logout",
@@ -405,7 +406,7 @@ TEXTS = {
         "group_details": "Podatki o skupini",
         "group_details_intro": "Spodaj dodajte strukturo skupine in nato nadaljujte s kontaktnimi podatki.",
         "sections_heading": "Sekcije",
-        "sections_intro": "Označite vse, kar velja, in pri vsaki izbrani sekciji dodajte število oseb.",
+        "sections_intro": "Dodajte število oseb v vsaki starostni kategoriji. Ti podatki se uporabijo tudi za turistično takso.",
         "scout_unit_details": "Podatki o skavtski enoti",
         "taborniki_unit_details": "Podatki o taborniški enoti",
         "national_scout_organization": "Nacionalna skavtska organizacija",
@@ -423,6 +424,7 @@ TEXTS = {
         "children_label": "Otroci",
         "total_label": "Skupaj",
         "section_total_note": "Mora ustrezati številu gostov iz prejšnjega koraka: {count}",
+        "tourist_tax": "Turistična taksa",
         "back": "Nazaj",
         "reset_this_page": "Ponastavi to stran",
         "media_logout": "Odjava medijskih orodij",
@@ -648,42 +650,31 @@ LASKI_GROUP_TYPES = [
 BOOKING_STATUSES = ["pending", "confirmed", "fee_paid", "cancelled", "rejected", "expired"]
 ACTIVE_BOOKING_STATUSES = ("pending", "confirmed", "fee_paid")
 GROUP_SECTION_OPTIONS = [
-    ("beavers", "Beavers [5 - 7]"),
-    ("cub_scouts", "Cub Scouts [7 - 10]"),
-    ("scouts", "Scouts [10 - 13]"),
-    ("explorers", "Explorers [13 - 16]"),
-    ("rover_scouts", "Rover Scouts [16 - 20]"),
-    ("leaders", "Leaders [> 20]"),
-    ("team", "Team [> 18]"),
+    ("age_0_6", "0-6.99 years of age"),
+    ("age_7_17", "7-17.99 years of age"),
+    ("age_18_plus", "18+ years of age"),
 ]
 NON_SCOUT_SECTION_LABELS = {
-    "beavers": "Age [5 - 7]",
-    "cub_scouts": "Age [7 - 10]",
-    "scouts": "Age [10 - 13]",
-    "explorers": "Age [13 - 16]",
-    "rover_scouts": "Age [16 - 20]",
-    "leaders": "Age [> 20]",
-    "team": "",
+    "age_0_6": "0-6.99 years of age",
+    "age_7_17": "7-17.99 years of age",
+    "age_18_plus": "18+ years of age",
 }
 ZTS_SECTION_LABELS = {
-    "beavers": "Murencki (M): do 7. leta.",
-    "cub_scouts": "Medvedki in cebelice (MC): 7-11 let",
-    "scouts": "Gozdovniki in gozdovnice (GG): 11-15 let",
-    "explorers": "Popotniki in popotnice (PP): 16-21 let.",
-    "rover_scouts": "Raziskovalci in raziskovalke (RR): 21-27 let.",
-    "leaders": "Grce (GR): nad 27 let",
-    "team": "",
+    "age_0_6": "0-6.99 years of age",
+    "age_7_17": "7-17.99 years of age",
+    "age_18_plus": "18+ years of age",
 }
 SLOVENIA_OTHER_SECTION_LABELS = {
-    "beavers": "Age [0 - 6]",
-    "cub_scouts": "Age [7 - 17]",
-    "scouts": "",
-    "explorers": "",
-    "rover_scouts": "Age [18+]",
-    "leaders": "",
-    "team": "",
+    "age_0_6": "0-6.99 years of age",
+    "age_7_17": "7-17.99 years of age",
+    "age_18_plus": "18+ years of age",
 }
-ADULT_SECTION_KEYS = {"rover_scouts", "leaders", "team"}
+ADULT_SECTION_KEYS = {"age_18_plus"}
+TOURIST_TAX_RATES = {
+    "age_0_6": Decimal("0.00"),
+    "age_7_17": Decimal("1.25"),
+    "age_18_plus": Decimal("2.50"),
+}
 COUNTRY_OPTIONS = [
     "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia",
     "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin",
@@ -1374,7 +1365,42 @@ def format_rental_summary_label(item):
     return label
 
 
-def build_summary_breakdown(connection, unit, check_in, check_out, guest_count, member_category, boarding_option, laski_group_type, selected_rentals):
+def build_tourist_tax_rows(section_rows, total_nights):
+    rows = []
+    total = Decimal("0.00")
+    for row in section_rows or []:
+        if not row.get("selected"):
+            continue
+        count = int(row.get("count", 0) or 0)
+        if count <= 0:
+            continue
+        rate = TOURIST_TAX_RATES.get(row.get("key"), Decimal("0.00"))
+        amount = (rate * Decimal(count) * Decimal(total_nights)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        total += amount
+        rows.append({
+            "label": f"Tourist tax - {row['label']}",
+            "participants": str(count),
+            "nights": str(total_nights),
+            "price": format_currency(rate),
+            "amount": format_currency(amount),
+        })
+    return rows, total
+
+
+def section_rows_from_labels(selected_sections):
+    rows = []
+    for key, label in GROUP_SECTION_OPTIONS:
+        count = 0
+        for section in selected_sections or []:
+            prefix = f"{label}:"
+            if section.startswith(prefix):
+                count = to_non_negative_int(section.removeprefix(prefix).strip())
+                break
+        rows.append({"key": key, "label": label, "selected": count > 0, "count": count})
+    return rows
+
+
+def build_summary_breakdown(connection, unit, check_in, check_out, guest_count, member_category, boarding_option, laski_group_type, selected_rentals, section_rows=None):
     total_nights = nights_between(check_in, check_out)
     rows = []
     total_amount = Decimal("0.00")
@@ -1465,6 +1491,10 @@ def build_summary_breakdown(connection, unit, check_in, check_out, guest_count, 
             "amount": format_currency(amount),
         })
         summary_price_text = f"{format_currency(rate)} per guest per night"
+
+    tourist_tax_rows, tourist_tax_total = build_tourist_tax_rows(section_rows, total_nights)
+    rows.extend(tourist_tax_rows)
+    total_amount += tourist_tax_total
 
     for entry in selected_rentals:
         item = entry["item"]
@@ -1624,9 +1654,7 @@ def render_submitted_group_details(data, lang):
             ("Country", data["country"] or not_specified),
         ]),
         render_detail_group("Participants", [
-            ("Sections", sections),
-            ("Adults", data["adult_count"] or not_specified),
-            ("Children", data["child_count"] or not_specified),
+            ("Age categories", sections),
             ("Total participants", data["guest_count"] or not_specified),
         ]),
         render_detail_group(leader_label, [
@@ -1722,6 +1750,7 @@ def build_booking_summary_data(connection, unit, params):
         boarding_option,
         laski_group_type,
         selected_rentals,
+        section_rows,
     )
     details_data = {
         "organization_name": organization_name,
@@ -2766,6 +2795,7 @@ def build_admin_booking_view_data(connection, booking):
         metadata.get("Boarding option", ""),
         laski_group_type,
         selected_rentals,
+        section_rows_from_labels(details_data["selected_sections"]),
     )
     return {"unit": unit, "details_data": details_data, "breakdown": breakdown}
 
@@ -3788,15 +3818,9 @@ def render_details_page(connection, params, errors=None):
                 for row in section_rows
             )}
           </div>
+          <input type="hidden" name="adult_count" class="section-total-adults" value="{html.escape(fields['adult_count'])}">
+          <input type="hidden" name="child_count" class="section-total-children" value="{html.escape(fields['child_count'])}">
           <div class="section-totals">
-            <label>
-              {html.escape(t(lang, "adults_label"))}
-              <input type="number" name="adult_count" class="section-total-adults" min="0" value="{html.escape(fields['adult_count'])}" readonly>
-            </label>
-            <label>
-              {html.escape(t(lang, "children_label"))}
-              <input type="number" name="child_count" class="section-total-children" min="0" value="{html.escape(fields['child_count'])}" readonly>
-            </label>
             <label>
               {html.escape(t(lang, "total_label"))}
               <input type="number" name="section_total" class="section-total-all" min="0" value="{section_total}" readonly>
@@ -6293,6 +6317,7 @@ def validate_booking_form(connection, form, admin_mode=False):
         boarding_option,
         form.get("laski_group_type", "").strip(),
         selected_rentals,
+        section_rows,
     )
     total_price = breakdown["total_amount"]
 
