@@ -316,6 +316,10 @@ TEXTS = {
         "info_document_nature_zts": "Visiting nature in Slovenia",
         "info_document_nature_pzs": "Summer mountaineering safety tips",
         "info_document_nature_tnp": "Triglav National Park map",
+        "info_document_campsite_heading": "Campsite rules",
+        "info_document_campsite_tc": "TC campsite rules",
+        "info_document_campsite_laski": "Laški rovt campsite rules of conduct",
+        "info_document_campsite_bohinj": "Rules of conduct in Bohinj",
         "info_document_note": "Document links can be replaced with final PDFs or external pages when they are ready.",
         "landing_eyebrow": "Bohinj and scout accommodation",
         "landing_title": "Choose your place first, then check occupancy for your dates.",
@@ -521,6 +525,10 @@ TEXTS = {
         "info_document_nature_zts": "Obiskovanje narave v Sloveniji",
         "info_document_nature_pzs": "Poletni nasveti za varno obiskovanje gora",
         "info_document_nature_tnp": "Zemljevid Triglavskega narodnega parka",
+        "info_document_campsite_heading": "Pravila tabornih prostorov",
+        "info_document_campsite_tc": "Pravila tabornih prostorov TC",
+        "info_document_campsite_laski": "Pravila obnašanja na taboru Laški rovt",
+        "info_document_campsite_bohinj": "Pravila obnašanja v Bohinju",
         "info_document_note": "Povezave do dokumentov lahko kasneje zamenjamo s končnimi PDF-ji ali zunanjimi stranmi.",
         "landing_eyebrow": "Bohinjske in taborniške nastanitve",
         "landing_title": "Najprej izberite lokacijo, nato preverite razpoložljivost za svoje datume.",
@@ -4859,6 +4867,14 @@ def render_information_page(connection, params):
           <a href="/static/documents/zts-visiting-nature-in-slovenia.pdf" target="_blank" rel="noopener">{html.escape(t(lang, "info_document_nature_zts"))}</a>
           <a href="/static/documents/pzs-summer-mountaineering-safety-tips-eng.pdf" target="_blank" rel="noopener">{html.escape(t(lang, "info_document_nature_pzs"))}</a>
           <a href="/static/documents/triglav-national-park-map.pdf" target="_blank" rel="noopener">{html.escape(t(lang, "info_document_nature_tnp"))}</a>
+        </div>
+      </div>
+      <div class="info-document-group">
+        <h3>{html.escape(t(lang, "info_document_campsite_heading"))}</h3>
+        <div class="info-document-grid">
+          <a href="/static/documents/rules-tc-en-2024.pdf" target="_blank" rel="noopener">{html.escape(t(lang, "info_document_campsite_tc"))}</a>
+          <a href="/static/documents/laski-rovt-campsite-rules-of-conduct.pdf" target="_blank" rel="noopener">{html.escape(t(lang, "info_document_campsite_laski"))}</a>
+          <a href="/static/documents/rules-of-conduct-in-bohinj.pdf" target="_blank" rel="noopener">{html.escape(t(lang, "info_document_campsite_bohinj"))}</a>
         </div>
       </div>
       <div class="info-document-grid">
