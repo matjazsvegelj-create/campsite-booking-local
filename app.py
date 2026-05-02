@@ -320,6 +320,12 @@ TEXTS = {
         "info_document_campsite_tc": "TC campsite rules",
         "info_document_campsite_laski": "Laški rovt campsite rules of conduct",
         "info_document_campsite_bohinj": "Rules of conduct in Bohinj",
+        "info_document_other_heading": "Other documents and informations",
+        "info_document_contact_notice": "For questions before booking, please send an e-mail to tc.bohinj@taborniki.si.",
+        "info_document_other_izola": "LD Izola program",
+        "info_document_other_participants": "List of participants GS-ZTS",
+        "info_document_other_sales": "Sales actions for scouts",
+        "info_document_other_radlje": "What to do in and around Radlje ob Dravi",
         "info_document_note": "Document links can be replaced with final PDFs or external pages when they are ready.",
         "landing_eyebrow": "Bohinj and scout accommodation",
         "landing_title": "Choose your place first, then check occupancy for your dates.",
@@ -529,6 +535,12 @@ TEXTS = {
         "info_document_campsite_tc": "Pravila tabornih prostorov TC",
         "info_document_campsite_laski": "Pravila obnašanja na taboru Laški rovt",
         "info_document_campsite_bohinj": "Pravila obnašanja v Bohinju",
+        "info_document_other_heading": "Drugi dokumenti in informacije",
+        "info_document_contact_notice": "Za vprašanja pred rezervacijo pošljite e-pošto na tc.bohinj@taborniki.si.",
+        "info_document_other_izola": "Program LD Izola",
+        "info_document_other_participants": "Seznam udeležencev GS-ZTS",
+        "info_document_other_sales": "Prodajne akcije za skavte",
+        "info_document_other_radlje": "Kaj početi v Radljah ob Dravi in okolici",
         "info_document_note": "Povezave do dokumentov lahko kasneje zamenjamo s končnimi PDF-ji ali zunanjimi stranmi.",
         "landing_eyebrow": "Bohinjske in taborniške nastanitve",
         "landing_title": "Najprej izberite lokacijo, nato preverite razpoložljivost za svoje datume.",
@@ -4877,10 +4889,15 @@ def render_information_page(connection, params):
           <a href="/static/documents/rules-of-conduct-in-bohinj.pdf" target="_blank" rel="noopener">{html.escape(t(lang, "info_document_campsite_bohinj"))}</a>
         </div>
       </div>
-      <div class="info-document-grid">
-        <a href="/period?lang={lang}">{html.escape(t(lang, "info_document_rules"))}</a>
-        <a href="/period?lang={lang}">{html.escape(t(lang, "info_document_prices"))}</a>
-        <a href="/period?lang={lang}">{html.escape(t(lang, "info_document_contact"))}</a>
+      <div class="info-document-group">
+        <h3>{html.escape(t(lang, "info_document_other_heading"))}</h3>
+        <div class="info-document-grid">
+          <a href="mailto:tc.bohinj@taborniki.si" onclick="alert('{html.escape(t(lang, "info_document_contact_notice"), quote=True)}')">{html.escape(t(lang, "info_document_contact"))}</a>
+          <a href="/static/documents/ld-izola-program-ang.pdf" target="_blank" rel="noopener">{html.escape(t(lang, "info_document_other_izola"))}</a>
+          <a href="/static/documents/list-of-participants-gs-zts.xlsx" target="_blank" rel="noopener">{html.escape(t(lang, "info_document_other_participants"))}</a>
+          <a href="/static/documents/aa-sales-actions-scouts-en-2025.pdf" target="_blank" rel="noopener">{html.escape(t(lang, "info_document_other_sales"))}</a>
+          <a href="/static/documents/what-to-do-in-and-around-radlje-ob-dravi.pdf" target="_blank" rel="noopener">{html.escape(t(lang, "info_document_other_radlje"))}</a>
+        </div>
       </div>
       <p class="muted">{html.escape(t(lang, "info_document_note"))}</p>
     </section>
@@ -6745,6 +6762,7 @@ def serve_static(environ):
         ".jpeg": "image/jpeg",
         ".webp": "image/webp",
         ".pdf": "application/pdf",
+        ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     }.get(suffix, "application/octet-stream")
     data = target.read_bytes()
     return "200 OK", [("Content-Type", content_type), ("Content-Length", str(len(data)))], [data]
