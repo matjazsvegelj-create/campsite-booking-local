@@ -203,7 +203,8 @@ TEXTS = {
         "town_label": "Town",
         "country_label": "Country",
         "vat_number_label": "VAT number",
-        "vat_number_note": "If not applicable write /",
+        "vat_number_note": "VAT number is required.",
+        "vat_number_foreign_note": "If not applicable, foreign groups can write /.",
         "adults_label": "Adults",
         "children_label": "Children",
         "total_label": "Total",
@@ -420,7 +421,8 @@ TEXTS = {
         "town_label": "Kraj",
         "country_label": "Država",
         "vat_number_label": "Davčna številka",
-        "vat_number_note": "Če ni relevantno, vpišite /",
+        "vat_number_note": "Davčna številka je obvezna.",
+        "vat_number_foreign_note": "Če ni relevantno, lahko tuje skupine vpišejo /.",
         "adults_label": "Odrasli",
         "children_label": "Otroci",
         "total_label": "Skupaj",
@@ -1914,6 +1916,7 @@ def validate_group_details_params(params):
     errors = []
     is_non_scout_group = params.get("laski_group_type", "") == "non_scouts"
     is_slovenia_other_group = is_slovenia_country(params.get("origin_country", "")) and params.get("member_category", "") == "other"
+    vat_number = params.get("vat_number", "").strip()
     if not params.get("group_name", "").strip():
         errors.append("Registered name of the group is required." if (is_non_scout_group or is_slovenia_other_group) else "Local scout unit is required.")
     if not params.get("group_street", "").strip():
@@ -1926,8 +1929,10 @@ def validate_group_details_params(params):
         errors.append("Town is required.")
     if not is_non_scout_group and not is_slovenia_other_group and not params.get("organization_name", "").strip():
         errors.append("National scout organization is required.")
-    if not params.get("vat_number", "").strip():
+    if not vat_number:
         errors.append("VAT number is required.")
+    elif is_slovenia_country(params.get("origin_country", "")) and vat_number == "/":
+        errors.append("VAT number is required for Slovenian groups. / is only allowed for foreign groups.")
     adults, children, _ = calculate_section_totals(params)
     total = adults + children
     expected_total = to_non_negative_int(params.get("guest_count", "0"))
@@ -3869,7 +3874,7 @@ def render_details_page(connection, params, errors=None):
             </label>
             <label class="field-span-2">
               {html.escape(t(lang, "vat_number_label"))}
-              <small>{html.escape(t(lang, "vat_number_note"))}</small>
+              <small>{html.escape(t(lang, "vat_number_note") if is_slovenia_country(fields["origin_country"]) else t(lang, "vat_number_foreign_note"))}</small>
               <input type="text" name="vat_number" value="{html.escape(fields['vat_number'])}" required>
             </label>
           </div>
