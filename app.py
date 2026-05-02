@@ -4900,6 +4900,11 @@ def render_info_map_assets():
     }).addTo(map);
 
     const closeLocationPopupZoom = 14;
+    const popupLayer = document.createElement('div');
+    popupLayer.className = 'map-hover-popup';
+    popupLayer.hidden = true;
+    map.getContainer().appendChild(popupLayer);
+    let activeMarker = null;
     const escapeHtml = (value) => String(value || '').replace(/[&<>"']/g, (character) => ({
       '&': '&amp;',
       '<': '&lt;',
@@ -4909,39 +4914,71 @@ def render_info_map_assets():
     }[character]));
     const openLocationPopup = (marker, location) => {
       if (location.requiresZoom && map.getZoom() < closeLocationPopupZoom) return;
-      marker.bindPopup(renderLocationPopup(location), getPopupPlacement(location));
-      marker.openPopup();
+      activeMarker = marker;
+      popupLayer.innerHTML = renderLocationPopup(location);
+      popupLayer.hidden = false;
+      popupLayer.classList.remove('map-hover-popup--top', 'map-hover-popup--right', 'map-hover-popup--bottom', 'map-hover-popup--left');
+      requestAnimationFrame(() => placeLocationPopup(marker));
     };
-    const getPopupPlacement = (location) => {
+    const closeLocationPopup = (marker) => {
+      if (marker && activeMarker && marker !== activeMarker) return;
+      activeMarker = null;
+      popupLayer.hidden = true;
+    };
+    const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+    const placeLocationPopup = (marker) => {
+      if (!marker || popupLayer.hidden) return;
       const mapSize = map.getSize();
-      const markerPoint = map.latLngToContainerPoint([location.lat, location.lng]);
-      const popupWidth = Math.min(360, Math.max(280, mapSize.x * 0.48));
-      const popupHeight = 300;
-      const markerGap = 42;
+      const markerPoint = map.latLngToContainerPoint(marker.getLatLng());
+      const padding = 10;
+      const markerGap = 24;
+      popupLayer.style.maxWidth = `${Math.min(360, Math.max(260, mapSize.x - (padding * 2)))}px`;
+      const popupRect = popupLayer.getBoundingClientRect();
+      const popupWidth = popupRect.width;
+      const popupHeight = popupRect.height;
       const space = {
-        top: markerPoint.y,
-        right: mapSize.x - markerPoint.x,
-        bottom: mapSize.y - markerPoint.y,
-        left: markerPoint.x,
+        top: markerPoint.y - padding,
+        right: mapSize.x - markerPoint.x - padding,
+        bottom: mapSize.y - markerPoint.y - padding,
+        left: markerPoint.x - padding,
       };
-      const side = [
-        ['top', space.top - popupHeight],
-        ['right', space.right - popupWidth],
-        ['bottom', space.bottom - popupHeight],
-        ['left', space.left - popupWidth],
-      ].sort((a, b) => b[1] - a[1])[0][0];
-      const placements = {
-        top: { offset: [0, -markerGap], className: 'map-popup--top' },
-        right: { offset: [Math.round(popupWidth / 2) + markerGap, 12], className: 'map-popup--right' },
-        bottom: { offset: [0, popupHeight + markerGap], className: 'map-popup--bottom' },
-        left: { offset: [-(Math.round(popupWidth / 2) + markerGap), 12], className: 'map-popup--left' },
+      const candidates = [
+        { side: 'right', score: space.right - popupWidth },
+        { side: 'left', score: space.left - popupWidth },
+        { side: 'top', score: space.top - popupHeight },
+        { side: 'bottom', score: space.bottom - popupHeight },
+      ];
+      const side = candidates.sort((a, b) => b.score - a.score)[0].side;
+      const positions = {
+        right: {
+          left: markerPoint.x + markerGap,
+          top: markerPoint.y - (popupHeight / 2),
+        },
+        left: {
+          left: markerPoint.x - popupWidth - markerGap,
+          top: markerPoint.y - (popupHeight / 2),
+        },
+        top: {
+          left: markerPoint.x - (popupWidth / 2),
+          top: markerPoint.y - popupHeight - markerGap,
+        },
+        bottom: {
+          left: markerPoint.x - (popupWidth / 2),
+          top: markerPoint.y + markerGap,
+        },
       };
-      return {
-        closeButton: false,
-        autoPan: false,
-        maxWidth: popupWidth,
-        ...placements[side],
-      };
+      const unclamped = positions[side];
+      const maxLeft = Math.max(padding, mapSize.x - popupWidth - padding);
+      const maxTop = Math.max(padding, mapSize.y - popupHeight - padding);
+      const left = clamp(unclamped.left, padding, maxLeft);
+      const top = clamp(unclamped.top, padding, maxTop);
+      const arrowX = clamp(markerPoint.x - left, 18, popupWidth - 18);
+      const arrowY = clamp(markerPoint.y - top, 18, popupHeight - 18);
+      popupLayer.style.left = `${Math.round(left)}px`;
+      popupLayer.style.top = `${Math.round(top)}px`;
+      popupLayer.style.setProperty('--arrow-x', `${Math.round(arrowX)}px`);
+      popupLayer.style.setProperty('--arrow-y', `${Math.round(arrowY)}px`);
+      popupLayer.classList.add(`map-hover-popup--${side}`);
     };
     const renderLocationPopup = (location) => {
       const highlights = Array.isArray(location.highlights)
@@ -4971,9 +5008,13 @@ def render_info_map_assets():
       marker.on('mouseover', () => openLocationPopup(marker, location));
       marker.on('focus', () => openLocationPopup(marker, location));
       marker.on('click', () => openLocationPopup(marker, location));
-      marker.on('mouseout', () => marker.closePopup());
-      marker.on('blur', () => marker.closePopup());
+      marker.on('mouseout', () => closeLocationPopup(marker));
+      marker.on('blur', () => closeLocationPopup(marker));
       bounds.push([location.lat, location.lng]);
+    });
+    map.on('zoomstart movestart', () => closeLocationPopup());
+    map.on('resize', () => {
+      if (activeMarker) placeLocationPopup(activeMarker);
     });
 
     map.fitBounds(sloveniaBounds, { padding: [22, 22] });

@@ -243,6 +243,52 @@ main {
   max-width: min(22rem, 72vw);
 }
 
+.map-hover-popup {
+  position: absolute;
+  z-index: 900;
+  width: max-content;
+  min-width: min(17rem, calc(100% - 20px));
+  max-width: min(22rem, calc(100% - 20px));
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(32, 49, 39, 0.22);
+  pointer-events: none;
+}
+
+.map-hover-popup::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  box-shadow: 3px 3px 7px rgba(32, 49, 39, 0.08);
+  transform: rotate(45deg);
+}
+
+.map-hover-popup--right::after {
+  left: -7px;
+  top: var(--arrow-y);
+  margin-top: -7px;
+}
+
+.map-hover-popup--left::after {
+  right: -7px;
+  top: var(--arrow-y);
+  margin-top: -7px;
+}
+
+.map-hover-popup--top::after {
+  left: var(--arrow-x);
+  bottom: -7px;
+  margin-left: -7px;
+}
+
+.map-hover-popup--bottom::after {
+  left: var(--arrow-x);
+  top: -7px;
+  margin-left: -7px;
+}
+
 .map-location-popup {
   display: grid;
   gap: 0.55rem;
