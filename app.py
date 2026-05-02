@@ -511,7 +511,7 @@ TEXTS = {
         "continue_to_summary": "Nadaljuj na povzetek",
         "unit_leader_label": "Vodja enote",
         "group_leader_label": "Vodja skupine",
-        "other_information": "Druge informacije",
+        "other_information": "Ostale informacije",
         "subcamp": "Podtabor",
         "our_group_is_from": "Naša (skavtska) skupina prihaja iz:",
         "choose_one": "Izberite eno",
@@ -3875,7 +3875,7 @@ def render_details_page(connection, params, errors=None):
           </div>
         </section>
         <section class="form-section field-span-full">
-          <h3>Other information</h3>
+          <h3>{html.escape(t(lang, "other_information"))}</h3>
           <div class="form-section-grid">
             <div class="time-preference-grid field-span-full">
               <label>
