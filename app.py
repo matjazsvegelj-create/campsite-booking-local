@@ -269,6 +269,7 @@ TEXTS = {
         "rental_comments_label": "Rental comments",
         "rental_comments_help": "Use this if you need more than the listed limit or want to add rental details.",
         "continue_to_contact": "Continue to contact details",
+        "continue_to_rental": "Continue to rental",
         "rental_yes": "Yes",
         "rental_no": "No",
         "rental_days_label": "Days",
@@ -487,6 +488,7 @@ TEXTS = {
         "rental_comments_label": "Komentarji za izposojo",
         "rental_comments_help": "Uporabite to, če potrebujete več kot navedeno omejitev ali želite dodati podrobnosti izposoje.",
         "continue_to_contact": "Nadaljuj na kontaktne podatke",
+        "continue_to_rental": "Nadaljuj na izposojo",
         "rental_yes": "Da",
         "rental_no": "Ne",
         "rental_days_label": "Dnevi",
@@ -1138,7 +1140,7 @@ def should_keep_reset_param(step_name, key):
     if step_name == "details":
         return key not in DETAILS_RESET_KEYS and not key.startswith("section_") and not key.startswith("rental_") and key not in CONTACT_RESET_KEYS
     if step_name == "rental":
-        return not key.startswith("rental_") and key != "rental_comments" and key not in CONTACT_RESET_KEYS
+        return not key.startswith("rental_") and key != "rental_comments"
     if step_name == "contact":
         return key not in CONTACT_RESET_KEYS
     if step_name == "summary":
@@ -3272,8 +3274,8 @@ def render_steps(active_step, lang):
         ("Period", t(lang, "period")),
         ("Type", t(lang, "type")),
         ("Group details", t(lang, "group_details")),
-        ("Rental", t(lang, "rental")),
         ("Contact details", t(lang, "contact_details")),
+        ("Rental", t(lang, "rental")),
         ("Other information", t(lang, "other_information")),
         ("Summary", t(lang, "summary")),
     ]
@@ -3804,7 +3806,7 @@ def render_details_page(connection, params, errors=None):
       <p>{html.escape(t(lang, "capacity"))}: {unit['max_guests']} {html.escape(t(lang, "guests_word"))}</p>
     </section>
     <section class="panel">
-        <form method="get" action="/rental" class="booking-form">
+        <form method="get" action="/contact" class="booking-form">
         {hidden_html}
         <section class="form-section field-span-full">
           <h3>{html.escape(t(lang, "group_details"))}</h3>
@@ -3908,7 +3910,7 @@ def render_details_page(connection, params, errors=None):
             </label>
           </div>
         </section>
-        {render_step_actions_form("/type", '<button type="submit" class="section-submit">Continue to rental</button>', lang, reset_href)}
+        {render_step_actions_form("/type", f'<button type="submit" class="section-submit">{html.escape(t(lang, "continue_to_contact"))}</button>', lang, reset_href)}
       </form>
       </section>
       <script>
@@ -4131,11 +4133,10 @@ def render_rental_page(connection, params, errors=None):
         render_rental_item_row(item, params, lang, admin_mode, return_to, stay_dates, availability.get(item["key"]), unit["location_name"])
         for item in rental_items
     )
-    back_to_details = build_return_to("/details", {})
     reset_href = build_reset_href("rental", "/rental", params)
 
     content = f"""
-    {render_reservation_steps(t(lang, "rental"), lang)}
+    {render_reservation_steps("Rental", lang)}
     {error_html}
     <section class="panel">
       <h2>{html.escape(display_location_with_unit(unit['location_name'], unit['unit_name'], lang))}</h2>
@@ -4143,7 +4144,7 @@ def render_rental_page(connection, params, errors=None):
       <p>{html.escape(t(lang, "guests"))}: {html.escape(params.get("guest_count", ""))}</p>
     </section>
       <section class="panel">
-        <form method="get" action="/contact" class="booking-form">
+        <form method="get" action="/book" class="booking-form">
         {hidden_html}
         <input type="hidden" name="admin_mode" value="{'1' if admin_mode else ''}">
         <section class="form-section field-span-full">
@@ -4157,7 +4158,7 @@ def render_rental_page(connection, params, errors=None):
               <textarea name="rental_comments" rows="4">{html.escape(params.get("rental_comments", ""))}</textarea>
             </label>
           </section>
-        {render_step_actions_form("/details", f'<button type="submit">{html.escape(t(lang, "continue_to_contact"))}</button>', lang, reset_href)}
+        {render_step_actions_form("/contact", f'<button type="submit">{html.escape(t(lang, "continue_to_summary"))}</button>', lang, reset_href)}
       </form>
     </section>
     <script>
@@ -4327,7 +4328,7 @@ def render_contact_page(connection, params, errors=None):
       <p>{html.escape(t(lang, "guests"))}: {html.escape(params.get("guest_count", ""))}</p>
     </section>
     <section class="panel">
-      <form method="get" action="/book" class="booking-form">
+      <form method="get" action="/rental" class="booking-form">
         {hidden_html}
           <section class="form-section field-span-full">
             <h3>{html.escape(t(lang, "contact_details"))}</h3>
@@ -4400,7 +4401,7 @@ def render_contact_page(connection, params, errors=None):
               </section>
             </div>
           </section>
-          {render_step_actions_form("/rental", f'<button type="submit">{html.escape(t(lang, "continue_to_summary"))}</button>', lang, reset_href)}
+          {render_step_actions_form("/details", f'<button type="submit">{html.escape(t(lang, "continue_to_rental"))}</button>', lang, reset_href)}
         </form>
       </section>
       <script>
@@ -6964,9 +6965,12 @@ def application(environ, start_response):
             query_params = parse_qs(environ.get("QUERY_STRING", ""), keep_blank_values=True)
             params = {key: values[0] for key, values in query_params.items()}
             with closing(get_connection()) as connection:
-                errors = validate_group_details_params(params)
-                if errors:
-                    status, headers, body = html_response(render_details_page(connection, params, errors))
+                group_errors = validate_group_details_params(params)
+                contact_errors = validate_contact_details_params(params) if not group_errors else []
+                if group_errors:
+                    status, headers, body = html_response(render_details_page(connection, params, group_errors))
+                elif contact_errors:
+                    status, headers, body = html_response(render_contact_page(connection, params, contact_errors))
                 else:
                     status, headers, body = html_response(render_rental_page(connection, params))
         elif path == "/contact" and method == "GET":
@@ -6974,11 +6978,8 @@ def application(environ, start_response):
             params = {key: values[0] for key, values in query_params.items()}
             with closing(get_connection()) as connection:
                 group_errors = validate_group_details_params(params)
-                rental_errors = validate_rental_params(connection, params) if not group_errors else []
                 if group_errors:
                     status, headers, body = html_response(render_details_page(connection, params, group_errors))
-                elif rental_errors:
-                    status, headers, body = html_response(render_rental_page(connection, params, rental_errors))
                 else:
                     status, headers, body = html_response(render_contact_page(connection, params))
         elif path == "/upload-image" and method == "POST":
@@ -7004,10 +7005,10 @@ def application(environ, start_response):
                 rental_errors = validate_rental_params(connection, params) if not group_errors else []
                 if group_errors:
                     status, headers, body = html_response(render_details_page(connection, params, group_errors))
-                elif rental_errors:
-                    status, headers, body = html_response(render_rental_page(connection, params, rental_errors))
                 elif contact_errors:
                     status, headers, body = html_response(render_contact_page(connection, params, contact_errors))
+                elif rental_errors:
+                    status, headers, body = html_response(render_rental_page(connection, params, rental_errors))
                 else:
                     status, headers, body = html_response(render_booking_page(connection, params))
         elif path == "/book" and method == "POST":
