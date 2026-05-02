@@ -312,6 +312,9 @@ TEXTS = {
         "info_document_rules": "House rules and camp instructions",
         "info_document_prices": "Price and rental information",
         "info_document_contact": "Contact before booking",
+        "info_document_nature_heading": "General information and rules in nature",
+        "info_document_nature_zts": "Visiting nature in Slovenia",
+        "info_document_nature_pzs": "Summer mountaineering safety tips",
         "info_document_note": "Document links can be replaced with final PDFs or external pages when they are ready.",
         "landing_eyebrow": "Bohinj and scout accommodation",
         "landing_title": "Choose your place first, then check occupancy for your dates.",
@@ -513,6 +516,9 @@ TEXTS = {
         "info_document_rules": "Hišni red in navodila za taborjenje",
         "info_document_prices": "Cenik in informacije o izposoji",
         "info_document_contact": "Kontakt pred rezervacijo",
+        "info_document_nature_heading": "Splošne informacije in pravila v naravi",
+        "info_document_nature_zts": "Obiskovanje narave v Sloveniji",
+        "info_document_nature_pzs": "Poletni nasveti za varno obiskovanje gora",
         "info_document_note": "Povezave do dokumentov lahko kasneje zamenjamo s končnimi PDF-ji ali zunanjimi stranmi.",
         "landing_eyebrow": "Bohinjske in taborniške nastanitve",
         "landing_title": "Najprej izberite lokacijo, nato preverite razpoložljivost za svoje datume.",
@@ -4845,6 +4851,13 @@ def render_information_page(connection, params):
     </section>
     <section class="panel info-documents">
       <h2>{html.escape(t(lang, "info_documents_heading"))}</h2>
+      <div class="info-document-group">
+        <h3>{html.escape(t(lang, "info_document_nature_heading"))}</h3>
+        <div class="info-document-grid">
+          <a href="/static/documents/zts-visiting-nature-in-slovenia.pdf" target="_blank" rel="noopener">{html.escape(t(lang, "info_document_nature_zts"))}</a>
+          <a href="/static/documents/pzs-summer-mountaineering-safety-tips-eng.pdf" target="_blank" rel="noopener">{html.escape(t(lang, "info_document_nature_pzs"))}</a>
+        </div>
+      </div>
       <div class="info-document-grid">
         <a href="/period?lang={lang}">{html.escape(t(lang, "info_document_rules"))}</a>
         <a href="/period?lang={lang}">{html.escape(t(lang, "info_document_prices"))}</a>
@@ -6712,6 +6725,7 @@ def serve_static(environ):
         ".jpg": "image/jpeg",
         ".jpeg": "image/jpeg",
         ".webp": "image/webp",
+        ".pdf": "application/pdf",
     }.get(suffix, "application/octet-stream")
     data = target.read_bytes()
     return "200 OK", [("Content-Type", content_type), ("Content-Length", str(len(data)))], [data]

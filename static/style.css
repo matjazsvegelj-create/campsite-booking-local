@@ -335,6 +335,18 @@ main {
   text-decoration: none;
 }
 
+.info-document-group {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 0.9rem;
+}
+
+.info-document-group h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.08rem;
+}
+
 .location-card {
   display: grid;
   gap: 1.25rem;
