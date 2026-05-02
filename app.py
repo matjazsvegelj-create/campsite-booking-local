@@ -772,7 +772,7 @@ RENTAL_ITEM_TRANSLATIONS = {
         "large_canoe_half_day": {"label": "Veliki kanu (do 10 oseb)", "note": "dopoldan ali popoldan, prevzem in uporaba pri Gozdni šoli Ukanc (Ukanc 3), največ 2"},
         "large_canoe_all_day": {"label": "Veliki kanu (do 10 oseb)", "note": "cel dan, prevzem in uporaba pri Gozdni šoli Ukanc (Ukanc 3), največ 2"},
         "bike_half_day": {"label": "Kolo", "note": "dopoldan ali popoldan, prevzem in uporaba pri Gozdni šoli Ukanc (Ukanc 3), največ 15"},
-        "bike_all_day": {"label": "Kolo", "note": "cel dan, prevzem in uporaba pri Gozdni šoli Ukanc (Ukanc 3), največ 15"},
+        "bike_all_day": {"label": "Kolo", "note": "cel dan, prevzem pri Gozdni šoli Ukanc (Ukanc 3), največ 15"},
         "electric_bike_half_day": {"label": "Električno kolo", "note": "poldnevni najem, prevzem in uporaba pri Gozdni šoli Ukanc (Ukanc 3), največ 10", "disabled_note": "še ni na voljo"},
         "electric_bike_all_day": {"label": "Električno kolo", "note": "celodnevni najem, prevzem in uporaba pri Gozdni šoli Ukanc (Ukanc 3), največ 10", "disabled_note": "še ni na voljo"},
         "sup_all_day": {"label": "SUP", "note": "cel dan, največ 2"},
