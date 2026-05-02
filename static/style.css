@@ -1297,6 +1297,27 @@ button:hover,
   padding-top: 0;
 }
 
+.rental-extra--half-day {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 1rem;
+  align-items: center;
+}
+
+.rental-extra--half-day strong {
+  color: var(--muted);
+}
+
+.rental-extra--half-day label {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.rental-extra--half-day input {
+  width: auto;
+}
+
 .rental-decide-later {
   display: flex;
   gap: 0.45rem;

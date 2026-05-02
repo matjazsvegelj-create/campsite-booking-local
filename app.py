@@ -277,6 +277,9 @@ TEXTS = {
         "rental_days_count": "{count} days",
         "rental_day_count": "{count} day",
         "rental_date_later": "The exact date is to be decided later",
+        "rental_half_day_preference": "Preferred half-day time",
+        "rental_preferred_morning": "Preferred morning",
+        "rental_preferred_afternoon": "Preferred afternoon",
         "rental_add_picture": "Add picture for {label}",
         "rental_available_selected_dates": "Available for selected dates: {count}",
         "contact_details": "Contact details",
@@ -500,6 +503,9 @@ TEXTS = {
         "rental_days_count": "{count} dni",
         "rental_day_count": "{count} dan",
         "rental_date_later": "Točen datum bo določen kasneje",
+        "rental_half_day_preference": "Želeni termin poldnevnega najema",
+        "rental_preferred_morning": "Želeno dopoldan",
+        "rental_preferred_afternoon": "Želeno popoldan",
         "rental_add_picture": "Dodaj sliko za {label}",
         "rental_available_selected_dates": "Na voljo za izbrane datume: {count}",
         "contact_details": "Kontaktni podatki",
@@ -1044,6 +1050,38 @@ def rental_dates_to_be_decided_later(entry):
     return "__later__" in (entry.get("selected_dates") or [])
 
 
+def rental_has_half_day_preference(item):
+    return str(item.get("key", "")).endswith("_half_day")
+
+
+def rental_half_day_preference_label(value, lang="en"):
+    if value == "morning":
+        return t(lang, "rental_preferred_morning")
+    if value == "afternoon":
+        return t(lang, "rental_preferred_afternoon")
+    return ""
+
+
+def render_rental_half_day_preference(item, params, lang, is_disabled=False):
+    if not rental_has_half_day_preference(item):
+        return ""
+    item_key = item["key"]
+    selected = params.get(f"rental_{item_key}_half_day_preference", "")
+    return f"""
+    <div class="rental-extra rental-extra--half-day">
+      <strong>{html.escape(t(lang, "rental_half_day_preference"))}</strong>
+      <label>
+        <input type="checkbox" class="rental-half-day-preference" name="rental_{item_key}_half_day_preference" value="morning" {"checked" if selected == "morning" else ""} {"disabled" if is_disabled else ""}>
+        <span>{html.escape(t(lang, "rental_preferred_morning"))}</span>
+      </label>
+      <label>
+        <input type="checkbox" class="rental-half-day-preference" name="rental_{item_key}_half_day_preference" value="afternoon" {"checked" if selected == "afternoon" else ""} {"disabled" if is_disabled else ""}>
+        <span>{html.escape(t(lang, "rental_preferred_afternoon"))}</span>
+      </label>
+    </div>
+    """
+
+
 def render_rental_selected_dates_picker(item, params, stay_dates, lang):
     item_key = item["key"]
     parsed_selected_dates = parse_selected_dates_value(params.get(f"rental_{item_key}_selected_dates", ""))
@@ -1230,17 +1268,20 @@ def parse_rental_quantities(source):
         length_value = str(source.get(f"rental_{item['key']}_length", "")).strip()
         days_value = str(source.get(f"rental_{item['key']}_days", "")).strip()
         selected_dates = parse_selected_dates_value(source.get(f"rental_{item['key']}_selected_dates", ""))
+        half_day_preference = str(source.get(f"rental_{item['key']}_half_day_preference", "")).strip()
+        if half_day_preference not in {"morning", "afternoon"}:
+            half_day_preference = ""
         if "quantity_options" in item:
             quantity_value = raw_value if raw_value in item["quantity_options"] else ""
             if enabled and quantity_value:
-                selected.append({"item": item, "quantity": quantity_value, "length": length_value, "days": days_value, "selected_dates": selected_dates})
+                selected.append({"item": item, "quantity": quantity_value, "length": length_value, "days": days_value, "selected_dates": selected_dates, "half_day_preference": half_day_preference})
         else:
             quantity = min(
                 to_non_negative_int(raw_value or "0"),
                 item["max_quantity"],
             )
             if enabled and quantity > 0:
-                selected.append({"item": item, "quantity": str(quantity), "length": length_value, "days": days_value, "selected_dates": selected_dates})
+                selected.append({"item": item, "quantity": str(quantity), "length": length_value, "days": days_value, "selected_dates": selected_dates, "half_day_preference": half_day_preference})
     return selected
 
 
@@ -1562,8 +1603,11 @@ def build_summary_breakdown(connection, unit, check_in, check_out, guest_count, 
         if entry.get("length"):
             label += f" ({entry['length']})"
         note = ""
+        half_day_preference = rental_half_day_preference_label(entry.get("half_day_preference", ""), "en")
+        if half_day_preference:
+            note = half_day_preference
         if rental_dates_to_be_decided_later(entry):
-            note = "The exact date is to be decided later"
+            note = (note + " | " if note else "") + "The exact date is to be decided later"
         if discount_rate > 0:
             note = (note + " | " if note else "") + f"{int(discount_rate * 100)}% discount"
         rows.append({
@@ -1749,6 +1793,7 @@ def build_submitted_group_details_html(data, lang):
 
 
 def build_booking_summary_data(connection, unit, params):
+    lang = get_lang(params.get("lang", "en"))
     check_in = params.get("check_in", "")
     check_out = params.get("check_out", "")
     guest_count = params.get("guest_count", "1")
@@ -1847,6 +1892,7 @@ def build_booking_summary_data(connection, unit, params):
                     if rental_dates_to_be_decided_later(entry)
                     else (f" for {format_decimal_display(get_rental_selected_days(entry, nights_between(parse_date(check_in), parse_date(check_out))))} days" if rental_uses_day_count(entry["item"]) else "")
                 )
+                + (f" - {rental_half_day_preference_label(entry.get('half_day_preference', ''), lang)}" if entry.get("half_day_preference") else "")
                 + (f" ({entry['length']})" if entry['length'] else "")
             )
             for entry in selected_rentals
@@ -1903,6 +1949,7 @@ def render_rental_item_row(item, params, lang, admin_mode, return_to, stay_dates
         )}
         {'' if is_disabled else (render_rental_selected_dates_picker(item, params, stay_dates, lang) if rental_uses_day_count(item) else '')}
       </label>
+      {'' if is_disabled else render_rental_half_day_preference(item, params, lang, is_disabled)}
       {(
         '<div class="rental-extra">'
         + (
@@ -2442,6 +2489,7 @@ def init_db():
                 item_key text not null,
                 quantity numeric not null check (quantity > 0),
                 length text,
+                half_day_preference text,
                 selected_dates text,
                 created_at text not null default current_timestamp
             );
@@ -2468,6 +2516,8 @@ def init_db():
         }
         if "selected_dates" not in rental_columns:
             connection.execute("alter table booking_rentals add column selected_dates text")
+        if "half_day_preference" not in rental_columns:
+            connection.execute("alter table booking_rentals add column half_day_preference text")
         bookings_table_sql_row = connection.execute(
             "select sql from sqlite_master where type = 'table' and name = 'bookings'"
         ).fetchone()
@@ -2775,7 +2825,7 @@ def parse_booking_notes_metadata(notes):
 def fetch_booking_rentals(connection, booking_id):
     return connection.execute(
         """
-        select booking_id, item_key, quantity, length, selected_dates
+        select booking_id, item_key, quantity, length, half_day_preference, selected_dates
         from booking_rentals
         where booking_id = ?
         order by id asc
@@ -2792,6 +2842,8 @@ def format_selected_rental_summary(entry, total_nights):
         summary += " for the exact date to be decided later"
     elif rental_uses_day_count(item):
         summary += f" for {format_decimal_display(get_rental_selected_days(entry, total_nights))} days"
+    if entry.get("half_day_preference"):
+        summary += f" - {rental_half_day_preference_label(entry['half_day_preference'], 'en')}"
     if entry.get("length"):
         summary += f" ({entry['length']})"
     return summary
@@ -2813,6 +2865,7 @@ def build_admin_booking_view_data(connection, booking):
                 "item": item,
                 "quantity": str(rental_row["quantity"]),
                 "length": rental_row["length"] or "",
+                "half_day_preference": rental_row["half_day_preference"] or "",
                 "selected_dates": parse_selected_dates_value(rental_row["selected_dates"] or ""),
             }
         )
@@ -4241,6 +4294,7 @@ def render_rental_page(connection, params, errors=None):
         const dateButtons = wrap.querySelectorAll('.rental-date-button');
         const daysCount = row.querySelector('.rental-days-count');
         const decideLaterToggle = wrap.querySelector('.rental-decide-later-toggle');
+        const halfDayPreferences = wrap.querySelectorAll('.rental-half-day-preference');
         if (!qty || !yes || !no) return;
         const updateDaysCount = () => {{
           if (!selectedDatesInput || !daysCount) return;
@@ -4265,6 +4319,12 @@ def render_rental_page(connection, params, errors=None):
             input.disabled = !enabled;
             if (!enabled) {{
               input.value = '';
+            }}
+          }});
+          halfDayPreferences.forEach((input) => {{
+            input.disabled = !enabled;
+            if (!enabled) {{
+              input.checked = false;
             }}
           }});
           if (zeroOption) {{
@@ -4299,6 +4359,16 @@ def render_rental_page(connection, params, errors=None):
         yes.addEventListener('change', sync);
         no.addEventListener('change', sync);
         qty.addEventListener('change', sync);
+        halfDayPreferences.forEach((input) => {{
+          input.addEventListener('change', () => {{
+            if (!input.checked) return;
+            halfDayPreferences.forEach((other) => {{
+              if (other !== input) {{
+                other.checked = false;
+              }}
+            }});
+          }});
+        }});
         dateButtons.forEach((button) => {{
           button.addEventListener('click', () => {{
             if (button.disabled || !selectedDatesInput) return;
@@ -6253,6 +6323,7 @@ def render_booking_page(connection, params, errors=None):
               f'<input type="hidden" name="rental_{item["key"]}_days" value="{html.escape(params.get("rental_" + item["key"] + "_days", ""))}">'
               f'<input type="hidden" name="rental_{item["key"]}_selected_dates" value="{html.escape(params.get("rental_" + item["key"] + "_selected_dates", ""))}">'
               f'<input type="hidden" name="rental_{item["key"]}_length" value="{html.escape(params.get("rental_" + item["key"] + "_length", ""))}">'
+              f'<input type="hidden" name="rental_{item["key"]}_half_day_preference" value="{html.escape(params.get("rental_" + item["key"] + "_half_day_preference", ""))}">'
               for item in RENTAL_ITEMS
           )}
           <input type="hidden" name="rental_comments" value="{html.escape(rental_comments)}">
@@ -6520,7 +6591,9 @@ def validate_booking_form(connection, form, admin_mode=False):
     if selected_rentals:
         metadata_lines.append(
             "Rentals: " + ", ".join(
-                f"{entry['item']['label']} x{entry['quantity']}" + (f" ({entry['length']})" if entry['length'] else "")
+                f"{entry['item']['label']} x{entry['quantity']}"
+                + (f" - {rental_half_day_preference_label(entry['half_day_preference'], 'en')}" if entry.get("half_day_preference") else "")
+                + (f" ({entry['length']})" if entry['length'] else "")
                 for entry in selected_rentals
             )
         )
@@ -6626,14 +6699,15 @@ def insert_booking(connection, payload):
     for entry in payload["selected_rentals"]:
         connection.execute(
             """
-            insert into booking_rentals (booking_id, item_key, quantity, length, selected_dates)
-            values (?, ?, ?, ?, ?)
+            insert into booking_rentals (booking_id, item_key, quantity, length, half_day_preference, selected_dates)
+            values (?, ?, ?, ?, ?, ?)
             """,
             (
                 booking_id,
                 entry["item"]["key"],
                 format_decimal_display(entry["quantity"]),
                 entry.get("length", ""),
+                entry.get("half_day_preference", ""),
                 ",".join(entry.get("selected_dates", [])),
             ),
         )
