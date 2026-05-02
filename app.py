@@ -1720,12 +1720,12 @@ def render_submitted_group_details(data, lang):
             ("E-mail", data["contact_person_email"] or not_specified),
             ("Reachable telephone number", data["contact_person_phone"] or not_specified),
         ]),
-        render_detail_group("International commissioner", [
+        *(([] if (is_non_scout_group or is_slovenia_other_group) else [render_detail_group("International commissioner", [
             ("Name, surname", data["international_commissioner_name"] or not_specified),
             ("Address", data["international_commissioner_address"] or not_specified),
             ("E-mail", data["international_commissioner_email"] or not_specified),
             ("Telephone", data["international_commissioner_phone"] or not_specified),
-        ]),
+        ])])),
         render_detail_group("Travel and stay", [
             ("Dates of travel", f"{data['check_in']} to {data['check_out']}"),
             ("Preferred arrival time", data["preferred_arrival_slot"] or not_specified),
@@ -1806,6 +1806,9 @@ def build_booking_summary_data(connection, unit, params):
     details_data = {
         "organization_name": organization_name,
         "group_name": group_name,
+        "origin_country": params.get("origin_country", ""),
+        "member_category": member_category,
+        "laski_group_type": laski_group_type,
         "group_street": group_street,
         "group_house_number": group_house_number,
         "group_post_code": group_post_code,
@@ -4382,6 +4385,29 @@ def render_contact_page(connection, params, errors=None):
         "post_code": params.get("contact_person_post_code", ""),
         "town": params.get("contact_person_town", ""),
     }
+    show_international_commissioner = not (is_non_scout_group or is_slovenia_other_group)
+    international_commissioner_html = "" if not show_international_commissioner else f"""
+              <section class="contact-group">
+                <div class="form-section-grid">
+                  <label class="field-span-full">
+                    {html.escape(t(lang, "international_commissioner_name"))}
+                    <input type="text" name="international_commissioner_name" value="{html.escape(params.get('international_commissioner_name', ''))}">
+                  </label>
+                  <label class="field-span-2">
+                    {html.escape(t(lang, "international_commissioner_address"))}
+                    <input type="text" name="international_commissioner_address" value="{html.escape(params.get('international_commissioner_address', ''))}">
+                  </label>
+                  <label class="field-span-2">
+                    {html.escape(t(lang, "international_commissioner_email"))}
+                    <input type="email" name="international_commissioner_email" value="{html.escape(params.get('international_commissioner_email', ''))}">
+                  </label>
+                  <label class="field-span-full">
+                    {html.escape(t(lang, "international_commissioner_phone"))}
+                    <input type="text" name="international_commissioner_phone" value="{html.escape(params.get('international_commissioner_phone', ''))}">
+                  </label>
+                </div>
+              </section>
+    """
     reset_href = build_reset_href("contact", "/contact", params)
     content = f"""
     {render_reservation_steps("Contact details", lang)}
@@ -4475,26 +4501,7 @@ def render_contact_page(connection, params, errors=None):
                   </label>
                 </div>
               </section>
-              <section class="contact-group">
-                <div class="form-section-grid">
-                  <label class="field-span-full">
-                    {html.escape(t(lang, "international_commissioner_name"))}
-                    <input type="text" name="international_commissioner_name" value="{html.escape(params.get('international_commissioner_name', ''))}">
-                  </label>
-                  <label class="field-span-2">
-                    {html.escape(t(lang, "international_commissioner_address"))}
-                    <input type="text" name="international_commissioner_address" value="{html.escape(params.get('international_commissioner_address', ''))}">
-                  </label>
-                  <label class="field-span-2">
-                    {html.escape(t(lang, "international_commissioner_email"))}
-                    <input type="email" name="international_commissioner_email" value="{html.escape(params.get('international_commissioner_email', ''))}">
-                  </label>
-                  <label class="field-span-full">
-                    {html.escape(t(lang, "international_commissioner_phone"))}
-                    <input type="text" name="international_commissioner_phone" value="{html.escape(params.get('international_commissioner_phone', ''))}">
-                  </label>
-                </div>
-              </section>
+              {international_commissioner_html}
             </div>
           </section>
           {render_step_actions_form("/details", f'<button type="submit">{html.escape(t(lang, "continue_to_rental"))}</button>', lang, reset_href)}
