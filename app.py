@@ -1948,8 +1948,8 @@ def render_rental_item_row(item, params, lang, admin_mode, return_to, stay_dates
             if hide_quantity else render_rental_quantity_select(item, "" if is_disabled else params.get(f"rental_{item_key}", ""), None if is_disabled else available_quantity)
         )}
         {'' if is_disabled else (render_rental_selected_dates_picker(item, params, stay_dates, lang) if rental_uses_day_count(item) else '')}
+        {render_rental_half_day_preference(item, params, lang, is_disabled)}
       </label>
-      {render_rental_half_day_preference(item, params, lang, is_disabled)}
       {(
         '<div class="rental-extra">'
         + (

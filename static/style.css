@@ -1298,13 +1298,13 @@ button:hover,
 }
 
 .rental-extra--half-day {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem 1rem;
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(18rem, 1fr) minmax(11rem, 0.45fr) minmax(11rem, 0.45fr);
+  gap: 0.55rem;
   align-items: center;
-  width: fit-content;
-  max-width: 100%;
-  padding: 0.65rem 0.75rem;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.72);
@@ -1312,13 +1312,17 @@ button:hover,
 
 .rental-extra--half-day strong {
   color: var(--muted);
-  flex-basis: 100%;
 }
 
 .rental-extra--half-day label {
   display: flex;
   gap: 0.35rem;
   align-items: center;
+  min-height: 2.35rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
 }
 
 .rental-extra--half-day input {
@@ -1965,6 +1969,10 @@ td {
   }
 
   .rental-row {
+    grid-template-columns: 1fr;
+  }
+
+  .rental-extra--half-day {
     grid-template-columns: 1fr;
   }
 
