@@ -199,12 +199,30 @@ main {
 
 .info-map {
   width: 100%;
-  min-height: 480px;
+  height: min(62vw, 620px);
+  min-height: 460px;
   border: 1px solid var(--line);
   border-radius: 16px;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.65);
+  isolation: isolate;
+  position: relative;
   z-index: 0;
+}
+
+.info-map .leaflet-container,
+.info-map .leaflet-pane,
+.info-map .leaflet-map-pane,
+.info-map .leaflet-tile-pane,
+.info-map .leaflet-overlay-pane,
+.info-map .leaflet-marker-pane,
+.info-map .leaflet-tooltip-pane,
+.info-map .leaflet-popup-pane {
+  max-width: none;
+}
+
+.info-map img {
+  max-width: none;
 }
 
 .info-map .leaflet-tooltip {

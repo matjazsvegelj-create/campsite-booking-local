@@ -4687,23 +4687,25 @@ def render_info_map_section(lang):
 
 def render_info_map_assets():
     head_extra = """
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIINfQYp8v9ZbM6K5EGV9F4YQw8QDQ5C8Q="
-    crossorigin="">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 """
     body_extra = """
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-    crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
   (() => {
     const mapElement = document.getElementById('slovenia-locations-map');
     if (!mapElement || typeof L === 'undefined') return;
 
     const locations = JSON.parse(mapElement.dataset.locations || '[]');
+    const sloveniaBounds = L.latLngBounds(
+      [45.38, 13.33],
+      [46.90, 16.62]
+    );
     const map = L.map(mapElement, {
-      scrollWheelZoom: false,
+      scrollWheelZoom: true,
       zoomControl: true,
+      maxBounds: sloveniaBounds.pad(0.28),
+      maxBoundsViscosity: 0.65,
     });
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -4724,11 +4726,8 @@ def render_info_map_assets():
       bounds.push([location.lat, location.lng]);
     });
 
-    if (bounds.length) {
-      map.fitBounds(bounds, { padding: [34, 34] });
-    } else {
-      map.setView([46.1512, 14.9955], 8);
-    }
+    map.fitBounds(sloveniaBounds, { padding: [22, 22] });
+    setTimeout(() => map.invalidateSize(), 80);
   })();
   </script>
 """
