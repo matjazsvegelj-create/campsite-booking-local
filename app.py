@@ -404,6 +404,15 @@ TEXTS = {
         "availability_full": "No guest capacity remains for the full selected period.",
         "availability_partial_days": "{location}: occupied days in your selected period: {days}",
         "availability_fully_open": "{location}: all selected days currently have full availability.",
+        "date_outside_allowed": "Selected dates are outside the allowed period for this location.",
+        "checkout_after_checkin": "Check-out must be after check-in.",
+        "too_many_guests_location": "This location cannot accept that many guests. Please choose fewer people or another location.",
+        "too_many_guests_available": "Only {count} guests can still stay for the full selected period. Please reduce the guest count or choose another date.",
+        "section_total_matches": "Matches guests from previous step: {count}",
+        "section_total_mismatch_title": "Total must match guest count ({count}).",
+        "summary_ack_email": "I checked that the contact person's email address is correct.",
+        "summary_ack_request": "I understand this is a booking request and not the final confirmation.",
+        "summary_ack_contract": "I understand the final price and contract are sent after review.",
     },
     "sl": {
         "search": "Iskanje",
@@ -672,6 +681,15 @@ TEXTS = {
         "availability_full": "Za celotno izbrano obdobje ni več proste kapacitete.",
         "availability_partial_days": "{location}: zasedeni dnevi v izbranem obdobju: {days}",
         "availability_fully_open": "{location}: vsi izbrani dnevi imajo trenutno polno razpoložljivost.",
+        "date_outside_allowed": "Izbrani datumi so izven dovoljenega obdobja za to lokacijo.",
+        "checkout_after_checkin": "Odhod mora biti po prihodu.",
+        "too_many_guests_location": "Ta lokacija ne more sprejeti toliko gostov. Izberite manj oseb ali drugo lokacijo.",
+        "too_many_guests_available": "Za celotno izbrano obdobje je na voljo samo še {count} gostov. Zmanjšajte število gostov ali izberite drug termin.",
+        "section_total_matches": "Ustreza številu gostov iz prejšnjega koraka: {count}",
+        "section_total_mismatch_title": "Skupaj mora ustrezati številu gostov ({count}).",
+        "summary_ack_email": "Preveril/-a sem, da je e-poštni naslov kontaktne osebe pravilen.",
+        "summary_ack_request": "Razumem, da je to zahteva za rezervacijo in ne končna potrditev.",
+        "summary_ack_contract": "Razumem, da bosta končna cena in pogodba poslana po pregledu.",
     },
 }
 SEEDED_LOCATIONS = [
@@ -2159,8 +2177,14 @@ def validate_contact_details_params(params):
         errors.append(f"{leader_label} name is required.")
     if not contact_full_address(params, "unit_leader"):
         errors.append(f"{leader_label} address is required.")
+    phone_pattern = re.compile(r"^\+[0-9][0-9\s().-]{5,}$")
+    phone_fields = [
+        ("unit_leader_phone", f"{leader_label} telephone number"),
+        ("international_commissioner_phone", "International commissioner telephone number"),
+    ]
     same_as_unit_leader = params.get("contact_same_as_unit_leader", "") == "on"
     if not same_as_unit_leader:
+        phone_fields.append(("contact_person_phone", "Contact person telephone number"))
         contact_required = [
             ("contact_person_first_name", "Contact person first name is required."),
             ("contact_person_last_name", "Contact person surname is required."),
@@ -2178,6 +2202,10 @@ def validate_contact_details_params(params):
             errors.append("Contact person name is required.")
         if not contact_full_address(params, "contact_person"):
             errors.append("Contact person address is required.")
+    for field_name, label in phone_fields:
+        value = params.get(field_name, "").strip()
+        if value and not phone_pattern.fullmatch(value):
+            errors.append(f"{label} must include the country code, e.g. +xxx (phone number).")
     return errors
 
 
@@ -4334,12 +4362,12 @@ def render_details_page(connection, params, errors=None):
           total.classList.toggle('is-invalid', !matches);
           if (submit) {{
             submit.disabled = !matches;
-            submit.title = matches ? '' : 'Total must match guest count (' + expectedTotal + ').';
+            submit.title = matches ? '' : %SECTION_TOTAL_MISMATCH_TITLE%.replace('{{count}}', String(expectedTotal));
           }}
           if (totalNote) {{
             totalNote.textContent = matches
-              ? 'Matches guests from previous step: ' + expectedTotal
-              : 'Total must match guests from previous step: ' + expectedTotal;
+              ? %SECTION_TOTAL_MATCHES%.replace('{{count}}', String(expectedTotal))
+              : %SECTION_TOTAL_NOTE%.replace('{{count}}', String(expectedTotal));
           }}
         }};
         toggles.forEach((input) => input.addEventListener('change', sync));
@@ -4457,6 +4485,9 @@ def render_details_page(connection, params, errors=None):
       </script>
       {render_booking_draft_script(lang)}
       """
+    content = content.replace("%SECTION_TOTAL_MATCHES%", json.dumps(t(lang, "section_total_matches")))
+    content = content.replace("%SECTION_TOTAL_NOTE%", json.dumps(t(lang, "section_total_note")))
+    content = content.replace("%SECTION_TOTAL_MISMATCH_TITLE%", json.dumps(t(lang, "section_total_mismatch_title")))
     return render_layout("Group details", content, lang=lang, current_path="/details", current_params=params)
 
 
@@ -4737,7 +4768,7 @@ def render_contact_page(connection, params, errors=None):
                   <label class="field-span-full">
                     {html.escape(t(lang, "international_commissioner_phone"))}
                     <small>{html.escape(t(lang, "phone_country_code_note"))}</small>
-                    <input type="text" name="international_commissioner_phone" value="{html.escape(params.get('international_commissioner_phone', ''))}">
+                    <input type="tel" name="international_commissioner_phone" value="{html.escape(params.get('international_commissioner_phone', ''))}" pattern="^\\+[0-9][0-9\\s().-]{{5,}}$" title="{html.escape(t(lang, "phone_country_code_note"))}">
                   </label>
                 </div>
               </section>
@@ -4791,7 +4822,7 @@ def render_contact_page(connection, params, errors=None):
                   <label class="field-span-2">
                     {html.escape(t(lang, "contact_phone"))}
                     <small>{html.escape(t(lang, "phone_country_code_note"))}</small>
-                    <input type="text" name="unit_leader_phone" value="{html.escape(params.get('unit_leader_phone', ''))}" required>
+                    <input type="tel" name="unit_leader_phone" value="{html.escape(params.get('unit_leader_phone', ''))}" pattern="^\\+[0-9][0-9\\s().-]{{5,}}$" title="{html.escape(t(lang, "phone_country_code_note"))}" required>
                   </label>
                 </div>
               </section>
@@ -4833,7 +4864,7 @@ def render_contact_page(connection, params, errors=None):
                   <label class="field-span-2">
                     {html.escape(t(lang, "contact_phone"))}
                     <small>{html.escape(t(lang, "phone_country_code_note"))}</small>
-                    <input type="text" name="contact_person_phone" class="contact-person-field" value="{html.escape(params.get('contact_person_phone', ''))}" required>
+                    <input type="tel" name="contact_person_phone" class="contact-person-field" value="{html.escape(params.get('contact_person_phone', ''))}" pattern="^\\+[0-9][0-9\\s().-]{{5,}}$" title="{html.escape(t(lang, "phone_country_code_note"))}" required>
                   </label>
                 </div>
               </section>
@@ -5955,6 +5986,10 @@ def render_search_page(connection, params, errors=None):
         const availabilityFullText = %AVAILABILITY_FULL%;
         const availabilityPartialDaysTemplate = %AVAILABILITY_PARTIAL_DAYS%;
         const availabilityFullyOpenText = %AVAILABILITY_FULLY_OPEN%;
+        const dateOutsideAllowedText = %DATE_OUTSIDE_ALLOWED%;
+        const checkoutAfterCheckinText = %CHECKOUT_AFTER_CHECKIN%;
+        const tooManyGuestsLocationText = %TOO_MANY_GUESTS_LOCATION%;
+        const tooManyGuestsAvailableTemplate = %TOO_MANY_GUESTS_AVAILABLE%;
         const renderLocationTemplate = (template) => template.replace('{location}', locationName);
         const renderAvailabilityText = (count) => {
           if (count <= 0) {
@@ -6069,6 +6104,15 @@ def render_search_page(connection, params, errors=None):
             latestRemainingCapacity = Number.parseInt(String(data.remaining_capacity || 0), 10);
             if (liveCapacity) {
               liveCapacity.textContent = renderAvailabilityText(latestRemainingCapacity);
+            }
+            if (latestRemainingCapacity >= 0 && Number.parseInt(guestCountInput.value || '0', 10) > latestRemainingCapacity) {
+              if (liveCapacity) {
+                liveCapacity.textContent = tooManyGuestsAvailableTemplate.replace('{count}', String(latestRemainingCapacity));
+              }
+              if (continueButton) {
+                continueButton.disabled = true;
+              }
+              return;
             }
             updateCapacityWarning();
           } catch (error) {
@@ -6242,7 +6286,7 @@ def render_search_page(connection, params, errors=None):
           const guestCount = Number.parseInt(guestCountInput.value || '0', 10);
           const overCapacity = updateCapacityWarning();
           if (checkInDate && ((absoluteMinDate && checkInDate < absoluteMinDate) || (absoluteMaxDate && checkInDate > absoluteMaxDate))) {
-            output.textContent = 'Selected dates are outside the allowed period for this location.';
+            output.textContent = dateOutsideAllowedText;
             latestRemainingCapacity = null;
             if (liveCapacity) {
               liveCapacity.textContent = availabilityChooseDatesText;
@@ -6277,7 +6321,7 @@ def render_search_page(connection, params, errors=None):
           const end = new Date(checkOut.value + 'T00:00:00');
           const diff = Math.round((end - start) / 86400000);
           if (!Number.isFinite(diff) || diff <= 0) {
-            output.textContent = 'Check-out must be after check-in.';
+            output.textContent = checkoutAfterCheckinText;
             latestRemainingCapacity = null;
             if (liveCapacity) {
               liveCapacity.textContent = availabilityChooseDatesText;
@@ -6293,7 +6337,7 @@ def render_search_page(connection, params, errors=None):
             return;
           }
           if (overCapacity) {
-            output.textContent = 'Too many guests for this location.';
+            output.textContent = tooManyGuestsLocationText;
             if (warning) {
               warning.hidden = true;
             }
@@ -6560,6 +6604,10 @@ def render_search_page(connection, params, errors=None):
     script = script.replace("%AVAILABILITY_FULL%", "'" + t(lang, "availability_full").replace("'", "\\'") + "'")
     script = script.replace("%AVAILABILITY_PARTIAL_DAYS%", "'" + t(lang, "availability_partial_days").replace("'", "\\'") + "'")
     script = script.replace("%AVAILABILITY_FULLY_OPEN%", "'" + t(lang, "availability_fully_open").replace("'", "\\'") + "'")
+    script = script.replace("%DATE_OUTSIDE_ALLOWED%", json.dumps(t(lang, "date_outside_allowed")))
+    script = script.replace("%CHECKOUT_AFTER_CHECKIN%", json.dumps(t(lang, "checkout_after_checkin")))
+    script = script.replace("%TOO_MANY_GUESTS_LOCATION%", json.dumps(t(lang, "too_many_guests_location")))
+    script = script.replace("%TOO_MANY_GUESTS_AVAILABLE%", json.dumps(t(lang, "too_many_guests_available")))
     script = script.replace("%LOCALE%", "'" + ("sl-SI" if lang == "sl" else "en-GB") + "'")
     return render_layout(t(lang, "app_title"), intro + "".join(cards) + script, notice=notice, lang=lang, current_path="/period", current_params=params, is_admin=admin_mode)
 
@@ -6755,6 +6803,21 @@ def render_booking_page(connection, params, errors=None):
         <input type="hidden" name="preferred_departure_slot" value="{html.escape(preferred_departure_slot)}">
         <input type="hidden" name="preferred_departure_note" value="{html.escape(preferred_departure_note)}">
         <input type="hidden" name="notes" value="{html.escape(notes)}">
+        <section class="form-section field-span-full">
+          <h3>{html.escape(t(lang, "summary_next_steps"))}</h3>
+          <label class="checkbox">
+            <input type="checkbox" name="ack_contact_email" required>
+            {html.escape(t(lang, "summary_ack_email"))}
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="ack_booking_request" required>
+            {html.escape(t(lang, "summary_ack_request"))}
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="ack_final_contract" required>
+            {html.escape(t(lang, "summary_ack_contract"))}
+          </label>
+        </section>
         {render_step_actions(back_to_contact, f'<button type="submit">{html.escape(t(lang, "create_booking"))}</button>', lang)}
       </form>
     </section>
@@ -6962,6 +7025,22 @@ def validate_booking_form(connection, form, admin_mode=False):
         errors.append("Contact person name is required.")
     if not guest_email:
         errors.append("Contact person email is required.")
+    if not admin_mode:
+        for field_name, message in [
+            ("ack_contact_email", "Please confirm that the contact email is correct."),
+            ("ack_booking_request", "Please confirm that you understand this is a booking request."),
+            ("ack_final_contract", "Please confirm that the final price and contract are sent after review."),
+        ]:
+            if form.get(field_name, "") != "on":
+                errors.append(message)
+    phone_pattern = re.compile(r"^\+[0-9][0-9\s().-]{5,}$")
+    for value, label in [
+        (unit_leader_phone, "Group leader telephone number"),
+        (contact_person_phone, "Contact person telephone number"),
+        (international_commissioner_phone, "International commissioner telephone number"),
+    ]:
+        if value and not phone_pattern.fullmatch(value):
+            errors.append(f"{label} must include the country code, e.g. +xxx (phone number).")
 
     member_category = form.get("member_category", "").strip()
     boarding_option = form.get("boarding_option", "").strip()
