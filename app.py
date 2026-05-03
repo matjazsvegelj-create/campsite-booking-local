@@ -18,7 +18,11 @@ from wsgiref.simple_server import make_server
 
 
 APP_DIR = Path(__file__).resolve().parent
-DB_PATH = APP_DIR / "booking.db"
+DATABASE_PATH_VALUE = os.environ.get("DATABASE_PATH", "").strip()
+DB_PATH = Path(DATABASE_PATH_VALUE) if DATABASE_PATH_VALUE else APP_DIR / "booking.db"
+if not DB_PATH.is_absolute():
+    DB_PATH = APP_DIR / DB_PATH
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 STATIC_DIR = APP_DIR / "static"
 DATA_DIR = APP_DIR / "data"
 STYLE_CSS_PATH = STATIC_DIR / "style.css"
@@ -243,6 +247,17 @@ TEXTS = {
         "admin_status_updated": "Booking status updated",
         "admin_details": "Details",
         "admin_update": "Update",
+        "admin_needs_review": "Needs review",
+        "admin_no_review": "No bookings need review.",
+        "admin_quick_actions": "Quick actions",
+        "admin_latest_change_request": "Latest requested change",
+        "admin_internal_note": "Internal admin note",
+        "admin_internal_note_help": "Private note for admins only. It is not shown to the booking contact.",
+        "admin_confirm": "Confirm",
+        "admin_mark_fee_paid": "Mark fee paid",
+        "admin_reject": "Reject",
+        "admin_cancel": "Cancel",
+        "admin_expire": "Expire",
         "admin_allow_overbooking": "Allow overbooking",
         "admin_no_bookings": "No bookings yet.",
         "admin_default": "Default",
@@ -482,6 +497,17 @@ TEXTS = {
         "admin_status_updated": "Status rezervacije posodobljen",
         "admin_details": "Podrobnosti",
         "admin_update": "Posodobi",
+        "admin_needs_review": "Za pregled",
+        "admin_no_review": "Ni rezervacij za pregled.",
+        "admin_quick_actions": "Hitre akcije",
+        "admin_latest_change_request": "Zadnja zahtevana sprememba",
+        "admin_internal_note": "Interna opomba administratorja",
+        "admin_internal_note_help": "Zasebna opomba samo za administratorje. Kontaktni osebi ni prikazana.",
+        "admin_confirm": "Potrdi",
+        "admin_mark_fee_paid": "Označi plačilo",
+        "admin_reject": "Zavrni",
+        "admin_cancel": "Prekliči",
+        "admin_expire": "Označi poteklo",
         "admin_allow_overbooking": "Dovoli prekomerno rezervacijo",
         "admin_no_bookings": "Še ni rezervacij.",
         "admin_default": "Privzeto",
@@ -2508,6 +2534,7 @@ def init_db():
                 overbook_allowed integer not null default 0,
                 notes text,
                 booking_token text,
+                admin_note text,
                 created_at text not null default current_timestamp,
                 updated_at text not null default current_timestamp,
                 check (check_out > check_in)
@@ -2554,6 +2581,8 @@ def init_db():
         }
         if "booking_token" not in booking_columns:
             connection.execute("alter table bookings add column booking_token text")
+        if "admin_note" not in booking_columns:
+            connection.execute("alter table bookings add column admin_note text")
         bookings_table_sql_row = connection.execute(
             "select sql from sqlite_master where type = 'table' and name = 'bookings'"
         ).fetchone()
@@ -2578,6 +2607,7 @@ def init_db():
                     overbook_allowed integer not null default 0,
                     notes text,
                     booking_token text,
+                    admin_note text,
                     created_at text not null default current_timestamp,
                     updated_at text not null default current_timestamp,
                     check (check_out > check_in)
@@ -2585,11 +2615,11 @@ def init_db():
 
                 insert into bookings (
                     id, bookable_unit_id, guest_name, guest_email, guest_phone, check_in, check_out,
-                    guest_count, status, total_price, created_by_admin, overbook_allowed, notes, booking_token, created_at, updated_at
+                    guest_count, status, total_price, created_by_admin, overbook_allowed, notes, booking_token, admin_note, created_at, updated_at
                 )
                 select
                     id, bookable_unit_id, guest_name, guest_email, guest_phone, check_in, check_out,
-                    guest_count, status, total_price, created_by_admin, overbook_allowed, notes, booking_token, created_at, updated_at
+                    guest_count, status, total_price, created_by_admin, overbook_allowed, notes, booking_token, admin_note, created_at, updated_at
                 from bookings_old;
 
                 drop table bookings_old;
@@ -2868,6 +2898,18 @@ def extract_country_from_notes(notes):
 def extract_group_name_from_notes(notes):
     match = re.search(r"(?:^|\|\s*)Group name:\s*([^|]+)", str(notes or ""))
     return match.group(1).strip() if match else ""
+
+
+def extract_latest_change_request(notes):
+    requests = []
+    for chunk in re.split(r"\s+\|\s+", str(notes or "")):
+        part = chunk.strip()
+        if part.lower().startswith("change request "):
+            requests.append(part)
+    if not requests:
+        return ""
+    latest = requests[-1]
+    return latest.split(":", 1)[1].strip() if ":" in latest else latest
 
 
 def parse_booking_notes_metadata(notes):
@@ -6967,6 +7009,7 @@ def render_admin_page(connection, notice="", filters=None):
         booking_data = dict(booking)
         booking_data["country"] = extract_country_from_notes(booking_data.get("notes", ""))
         booking_data["group_name"] = extract_group_name_from_notes(booking_data.get("notes", "")) or booking_data.get("guest_name", "")
+        booking_data["latest_change_request"] = extract_latest_change_request(booking_data.get("notes", ""))
         bookings.append(booking_data)
     locations = fetch_locations(connection)
     sorted_bookings = sorted(
@@ -7010,11 +7053,95 @@ def render_admin_page(connection, notice="", filters=None):
             f'<option value="{value}"{" selected" if selected_value == value else ""}>{label}</option>'
             for value, label in option_pairs
         )
-    booking_rows = []
+    needs_review_statuses = {"pending", "change_requested", "cancel_requested"}
+    needs_review_bookings = [booking for booking in sorted_bookings if booking["status"] in needs_review_statuses]
+    quick_action_buttons = [
+        ("confirmed", "admin_confirm"),
+        ("fee_paid", "admin_mark_fee_paid"),
+        ("rejected", "admin_reject"),
+        ("cancelled", "admin_cancel"),
+        ("expired", "admin_expire"),
+    ]
+    def render_quick_action_buttons(booking, form_id):
+        return "".join(
+            f'<button type="submit" class="button button-secondary" name="quick_status" value="{status_value}" form="{form_id}">{html.escape(t(lang, label_key))}</button>'
+            for status_value, label_key in quick_action_buttons
+            if status_value != booking["status"]
+        )
+    def render_booking_table_rows(bookings_to_render, row_prefix):
+        rows = []
+        for booking in bookings_to_render:
+            form_id = f"admin-status-form-{row_prefix}-{booking['id']}"
+            return_anchor = f"{row_prefix}-booking-{booking['id']}"
+            modal_id = f"admin-booking-details-{booking['id']}"
+            latest_change_html = (
+                f'<p><strong>{html.escape(t(lang, "admin_latest_change_request"))}:</strong> {html.escape(booking["latest_change_request"])}</p>'
+                if booking.get("latest_change_request")
+                else ""
+            )
+            admin_note_value = booking.get("admin_note", "") or ""
+            admin_note_html = (
+                f'<p><strong>{html.escape(t(lang, "admin_internal_note"))}:</strong> {html.escape(admin_note_value)}</p>'
+                if admin_note_value
+                else ""
+            )
+            rows.append(
+                f"""
+                <tr id="{return_anchor}" class="admin-booking-row {booking_status_class(booking['status'])}">
+                  <td>{booking['id']}</td>
+                  <td>{html.escape(booking['location_name'])}</td>
+                  <td>{html.escape(booking['group_name'])}<br><span class="muted">{html.escape(booking['guest_name'])}</span>{latest_change_html}{admin_note_html}</td>
+                  <td>{booking['check_in']} to {booking['check_out']}</td>
+                  <td>{html.escape(booking.get('created_at', '').split(' ')[0])}</td>
+                  <td>{html.escape(booking.get('country', ''))}</td>
+                  <td>{booking['guest_count']}</td>
+                  <td>{html.escape(booking_status_label(booking['status'], lang))}</td>
+                  <td>EUR {Decimal(str(booking['total_price'])):.2f}</td>
+                  <td>
+                    <form method="post" action="/admin/status" class="admin-status-form" id="{form_id}">
+                      <input type="hidden" name="booking_id" value="{booking['id']}">
+                      <input type="hidden" name="lang" value="{lang}">
+                      <input type="hidden" name="return_anchor" value="{return_anchor}">
+                      <select name="status">
+                        {render_status_options(booking['status'], lang)}
+                      </select>
+                    </form>
+                  </td>
+                </tr>
+                <tr class="admin-booking-actions-row {booking_status_class(booking['status'])}">
+                  <td colspan="10">
+                    <div class="admin-booking-actions">
+                      <button type="button" class="button button-secondary admin-details-button" data-admin-details-target="{modal_id}">{html.escape(t(lang, "admin_details"))}</button>
+                      <button type="submit" class="admin-update-button" form="{form_id}">{html.escape(t(lang, "admin_update"))}</button>
+                      <span class="muted">{html.escape(t(lang, "admin_quick_actions"))}:</span>
+                      {render_quick_action_buttons(booking, form_id)}
+                    </div>
+                    <label>
+                      {html.escape(t(lang, "admin_internal_note"))}
+                      <small>{html.escape(t(lang, "admin_internal_note_help"))}</small>
+                      <textarea name="admin_note" rows="2" form="{form_id}">{html.escape(admin_note_value)}</textarea>
+                    </label>
+                  </td>
+                </tr>
+                """
+            )
+        return rows
+    review_rows = render_booking_table_rows(needs_review_bookings, "review")
+    booking_rows = render_booking_table_rows(sorted_bookings, "booking")
     booking_detail_modals = []
     for booking in sorted_bookings:
         booking_view = build_admin_booking_view_data(connection, booking)
         modal_id = f"admin-booking-details-{booking['id']}"
+        latest_change_html = (
+            f'<section class="panel"><h2>{html.escape(t(lang, "admin_latest_change_request"))}</h2><p>{html.escape(booking["latest_change_request"])}</p></section>'
+            if booking.get("latest_change_request")
+            else ""
+        )
+        admin_note_html = (
+            f'<section class="panel"><h2>{html.escape(t(lang, "admin_internal_note"))}</h2><p>{html.escape(booking.get("admin_note", "") or "")}</p></section>'
+            if booking.get("admin_note")
+            else ""
+        )
         if booking_view:
             booking_detail_modals.append(
                 f"""
@@ -7029,6 +7156,8 @@ def render_admin_page(connection, notice="", filters=None):
                       <button type="button" class="admin-modal-close" data-admin-modal-close aria-label="Close">x</button>
                     </div>
                     <div class="admin-modal-body">
+                      {latest_change_html}
+                      {admin_note_html}
                       <section class="panel">
                         <h2>{html.escape(t(lang, "admin_reservation_details"))}</h2>
                         {build_submitted_group_details_html(booking_view['details_data'], lang)}
@@ -7042,39 +7171,6 @@ def render_admin_page(connection, notice="", filters=None):
                 </div>
                 """
             )
-        booking_rows.append(
-            f"""
-            <tr id="booking-{booking['id']}" class="admin-booking-row {booking_status_class(booking['status'])}">
-              <td>{booking['id']}</td>
-              <td>{html.escape(booking['location_name'])}</td>
-              <td>{html.escape(booking['group_name'])}<br><span class="muted">{html.escape(booking['guest_name'])}</span></td>
-              <td>{booking['check_in']} to {booking['check_out']}</td>
-              <td>{html.escape(booking.get('created_at', '').split(' ')[0])}</td>
-              <td>{html.escape(booking.get('country', ''))}</td>
-              <td>{booking['guest_count']}</td>
-              <td>{html.escape(booking_status_label(booking['status'], lang))}</td>
-              <td>EUR {Decimal(str(booking['total_price'])):.2f}</td>
-              <td>
-                <form method="post" action="/admin/status" class="admin-status-form" id="admin-status-form-{booking['id']}">
-                  <input type="hidden" name="booking_id" value="{booking['id']}">
-                  <input type="hidden" name="lang" value="{lang}">
-                  <input type="hidden" name="return_anchor" value="booking-{booking['id']}">
-                  <select name="status">
-                    {render_status_options(booking['status'], lang)}
-                  </select>
-                </form>
-              </td>
-            </tr>
-            <tr class="admin-booking-actions-row {booking_status_class(booking['status'])}">
-              <td colspan="10">
-                <div class="admin-booking-actions">
-                  <button type="button" class="button button-secondary admin-details-button" data-admin-details-target="{modal_id}">{html.escape(t(lang, "admin_details"))}</button>
-                  <button type="submit" class="admin-update-button" form="admin-status-form-{booking['id']}">{html.escape(t(lang, "admin_update"))}</button>
-                </div>
-              </td>
-            </tr>
-            """
-        )
 
     unit_options = []
     for location in locations:
@@ -7139,6 +7235,30 @@ def render_admin_page(connection, notice="", filters=None):
       <p>{html.escape(t(lang, "admin_board_intro"))}</p>
     </section>
     {booking_board_html}
+    <section class="panel">
+      <h2>{html.escape(t(lang, "admin_needs_review"))}</h2>
+      <div class="table-wrap">
+        <table class="admin-bookings-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>{html.escape(t(lang, "admin_campsite"))}</th>
+              <th>{html.escape(t(lang, "admin_group_name"))}</th>
+              <th>{html.escape(t(lang, "admin_stay"))}</th>
+              <th>{html.escape(t(lang, "admin_applied"))}</th>
+              <th>{html.escape(t(lang, "country_label"))}</th>
+              <th>{html.escape(t(lang, "guests"))}</th>
+              <th>{html.escape(t(lang, "admin_status"))}</th>
+              <th>{html.escape(t(lang, "admin_total"))}</th>
+              <th>{html.escape(t(lang, "admin_action"))}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {''.join(review_rows) or f'<tr><td colspan="10">{html.escape(t(lang, "admin_no_review"))}</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </section>
     <section class="panel">
       <h2>{html.escape(t(lang, "admin_bookings"))}</h2>
       <div class="table-wrap">
@@ -7528,9 +7648,12 @@ def application(environ, start_response):
             else:
                 with closing(get_connection()) as connection:
                     booking_id = int(form.get("booking_id", "0"))
+                    selected_status = form.get("quick_status", "").strip() or form.get("status", "pending").strip() or "pending"
+                    if selected_status not in BOOKING_STATUSES:
+                        selected_status = "pending"
                     connection.execute(
-                        "update bookings set status = ?, updated_at = current_timestamp where id = ?",
-                        (form.get("status", "pending"), booking_id),
+                        "update bookings set status = ?, admin_note = ?, updated_at = current_timestamp where id = ?",
+                        (selected_status, form.get("admin_note", "").strip(), booking_id),
                     )
                     connection.commit()
                     return_anchor = form.get("return_anchor", "").strip() or f"booking-{booking_id}"
