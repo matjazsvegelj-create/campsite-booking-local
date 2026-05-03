@@ -182,6 +182,16 @@ main {
   padding-left: 1.1rem;
 }
 
+.info-place-card .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 4.6rem;
+  margin-top: auto;
+  text-align: center;
+}
+
 .info-map-panel {
   display: grid;
   gap: 1rem;
