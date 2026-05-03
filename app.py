@@ -219,6 +219,16 @@ TEXTS = {
         "section_total_note": "Must match guests from previous step: {count}",
         "tourist_tax": "Tourist tax",
         "tourist_tax_exemption_note": "Tourist tax exemption: the group can be excused from paying tourist tax if it provides proof of being an NGO. An official document must be sent.",
+        "tourist_tax_age_help": "Tourist tax per night/person: 0-6.99 years EUR 0.00, 7-17.99 years EUR 1.25, 18+ years EUR 2.50.",
+        "summary_stay_group": "Stay and group",
+        "summary_next_steps": "What happens next",
+        "summary_next_steps_1": "Submitting this form sends a booking request, not a final confirmation.",
+        "summary_next_steps_2": "The final confirmed calculation and contract will be sent by email after review.",
+        "summary_next_steps_3": "A booking summary will be sent to the contact person's email address.",
+        "summary_next_steps_4": "That email includes a private link for requesting changes to the booking.",
+        "summary_submitted_details": "Submitted group details",
+        "summary_calculation": "Calculation",
+        "draft_restored": "Saved draft restored in this browser.",
         "back": "Back",
         "reset_this_page": "Reset this page",
         "media_logout": "Media logout",
@@ -477,6 +487,16 @@ TEXTS = {
         "section_total_note": "Mora ustrezati številu gostov iz prejšnjega koraka: {count}",
         "tourist_tax": "Turistična taksa",
         "tourist_tax_exemption_note": "Oprostitev turistične takse: skupina je lahko oproščena plačila turistične takse, če predloži dokazilo, da je nevladna organizacija. Poslati mora uradni dokument.",
+        "tourist_tax_age_help": "Turistična taksa na noč/osebo: 0-6,99 let 0,00 EUR, 7-17,99 let 1,25 EUR, 18+ let 2,50 EUR.",
+        "summary_stay_group": "Termin in skupina",
+        "summary_next_steps": "Kaj sledi",
+        "summary_next_steps_1": "Oddaja tega obrazca pošlje zahtevo za rezervacijo, ne končne potrditve.",
+        "summary_next_steps_2": "Končni potrjeni izračun in pogodba bosta poslana po e-pošti po pregledu.",
+        "summary_next_steps_3": "Povzetek rezervacije bo poslan na e-poštni naslov kontaktne osebe.",
+        "summary_next_steps_4": "V tem e-sporočilu bo zasebna povezava za zahtevo sprememb rezervacije.",
+        "summary_submitted_details": "Oddani podatki skupine",
+        "summary_calculation": "Izračun",
+        "draft_restored": "Shranjeni osnutek je bil obnovljen v tem brskalniku.",
         "back": "Nazaj",
         "reset_this_page": "Ponastavi to stran",
         "media_logout": "Odjava medijskih orodij",
@@ -2999,6 +3019,51 @@ def render_admin_review_checklist_summary(booking, lang):
     """
 
 
+def render_booking_draft_script(lang):
+    return f"""
+    <script>
+    (() => {{
+      const form = document.querySelector('form.booking-form[data-draft-key]');
+      if (!form || !window.localStorage) return;
+      const key = form.dataset.draftKey;
+      const shouldSkip = (field) => !field.name || field.type === 'hidden' || field.type === 'submit' || field.type === 'button';
+      const fields = Array.from(form.elements).filter((field) => !shouldSkip(field));
+      try {{
+        const saved = JSON.parse(window.localStorage.getItem(key) || '{{}}');
+        let restored = false;
+        fields.forEach((field) => {{
+          if (!(field.name in saved)) return;
+          if (field.type === 'checkbox' || field.type === 'radio') {{
+            field.checked = Boolean(saved[field.name]);
+          }} else if (!field.value) {{
+            field.value = saved[field.name];
+          }}
+          restored = true;
+        }});
+        if (restored && !document.querySelector('.draft-restored-notice')) {{
+          const notice = document.createElement('p');
+          notice.className = 'draft-restored-notice muted';
+          notice.textContent = {json.dumps(t(lang, "draft_restored"))};
+          form.prepend(notice);
+          fields.forEach((field) => field.dispatchEvent(new Event('input', {{ bubbles: true }})));
+        }}
+      }} catch (error) {{
+      }}
+      const save = () => {{
+        const data = {{}};
+        fields.forEach((field) => {{
+          data[field.name] = (field.type === 'checkbox' || field.type === 'radio') ? field.checked : field.value;
+        }});
+        window.localStorage.setItem(key, JSON.stringify(data));
+      }};
+      form.addEventListener('input', save);
+      form.addEventListener('change', save);
+      form.addEventListener('submit', save);
+    }})();
+    </script>
+    """
+
+
 def parse_booking_notes_metadata(notes):
     metadata = {}
     extra_notes = []
@@ -4116,7 +4181,7 @@ def render_details_page(connection, params, errors=None):
       <p>{html.escape(t(lang, "capacity"))}: {unit['max_guests']} {html.escape(t(lang, "guests_word"))}</p>
     </section>
     <section class="panel">
-        <form method="get" action="/contact" class="booking-form">
+        <form method="get" action="/contact" class="booking-form" data-draft-key="booking-draft-details-{unit_id}-{html.escape(check_in)}-{html.escape(check_out)}-{html.escape(guest_count)}">
         {hidden_html}
         <section class="form-section field-span-full">
           <h3>{html.escape(t(lang, "group_details"))}</h3>
@@ -4125,6 +4190,7 @@ def render_details_page(connection, params, errors=None):
         <section class="panel booking-extra field-span-full">
           <h3>{html.escape(t(lang, "sections_heading"))}</h3>
           <p>{html.escape(t(lang, "sections_intro"))}</p>
+          <p class="muted">{html.escape(t(lang, "tourist_tax_age_help"))}</p>
           <div class="section-grid">
             {''.join(
                 f'''
@@ -4389,6 +4455,7 @@ def render_details_page(connection, params, errors=None):
         }}
       }})();
       </script>
+      {render_booking_draft_script(lang)}
       """
     return render_layout("Group details", content, lang=lang, current_path="/details", current_params=params)
 
@@ -4454,7 +4521,7 @@ def render_rental_page(connection, params, errors=None):
       <p>{html.escape(t(lang, "guests"))}: {html.escape(params.get("guest_count", ""))}</p>
     </section>
       <section class="panel">
-        <form method="get" action="/book" class="booking-form">
+        <form method="get" action="/book" class="booking-form" data-draft-key="booking-draft-rental-{unit_id}-{html.escape(params.get('check_in', ''))}-{html.escape(params.get('check_out', ''))}-{html.escape(params.get('guest_count', ''))}">
         {hidden_html}
         <input type="hidden" name="admin_mode" value="{'1' if admin_mode else ''}">
         <section class="form-section field-span-full">
@@ -4597,6 +4664,7 @@ def render_rental_page(connection, params, errors=None):
       }});
     }})();
     </script>
+    {render_booking_draft_script(lang)}
     """
     content = content.replace("%RENTAL_DATE_LATER%", "'" + t(lang, "rental_date_later").replace("'", "\\'") + "'")
     content = content.replace("%RENTAL_DAY_COUNT%", "'" + t(lang, "rental_day_count").replace("'", "\\'") + "'")
@@ -4684,7 +4752,7 @@ def render_contact_page(connection, params, errors=None):
       <p>{html.escape(t(lang, "guests"))}: {html.escape(params.get("guest_count", ""))}</p>
     </section>
     <section class="panel">
-      <form method="get" action="/rental" class="booking-form">
+      <form method="get" action="/rental" class="booking-form" data-draft-key="booking-draft-contact-{unit_id}-{html.escape(params.get('check_in', ''))}-{html.escape(params.get('check_out', ''))}-{html.escape(params.get('guest_count', ''))}">
         {hidden_html}
           <section class="form-section field-span-full">
             <h3>{html.escape(t(lang, "contact_details"))}</h3>
@@ -4822,6 +4890,7 @@ def render_contact_page(connection, params, errors=None):
         sync();
       }})();
       </script>
+      {render_booking_draft_script(lang)}
       """
     return render_layout("Contact details", content, lang=lang, current_path="/contact", current_params=params)
 
@@ -6595,21 +6664,34 @@ def render_booking_page(connection, params, errors=None):
         group_type_summary_html += (
             f'<p>{html.escape(t(lang, "laski_group_type"))}: {html.escape(laski_group_type)}</p>' if laski_group_type else ""
         )
+    next_steps_html = "".join(
+        f"<li>{html.escape(t(lang, key))}</li>"
+        for key in ("summary_next_steps_1", "summary_next_steps_2", "summary_next_steps_3", "summary_next_steps_4")
+    )
 
     error_html = "".join(f"<li>{html.escape(error)}</li>" for error in errors)
     content = f"""
     {render_reservation_steps("Summary", lang)}
       <section class="panel">
-        <h2>{html.escape(display_location_with_unit(unit['location_name'], unit['unit_name'], lang))}</h2>
+        <h2>{html.escape(t(lang, "summary_stay_group"))}</h2>
+        <p><strong>{html.escape(display_location_with_unit(unit['location_name'], unit['unit_name'], lang))}</strong></p>
         <p>{html.escape(t(lang, "stay"))}: {html.escape(format_stay_range(lang, check_in, check_out))}</p>
         <p>{html.escape(t(lang, "total_nights"))}: {total_nights}</p>
         <p>{html.escape(t(lang, "guests"))}: {html.escape(guest_count)}</p>
         <p>{html.escape(t(lang, "capacity"))}: {unit['max_guests']} {html.escape(t(lang, "guests_word"))}</p>
+        {group_type_summary_html}
+        {f'<p>{html.escape(t(lang, "boarding_option"))}: {html.escape(boarding_option)}</p>' if show_ukanc_type_fields and boarding_option else ''}
+      </section>
+      <section class="panel">
+        <h2>{html.escape(t(lang, "summary_calculation"))}</h2>
         <p>{html.escape(t(lang, "price"))}: {display_price}</p>
         <p>{html.escape(t(lang, "estimated_total"))}: EUR {total_price:.2f}</p>
         <p class="summary-warning"><strong>{html.escape(t(lang, "estimated_total_warning"))}</strong></p>
-        {group_type_summary_html}
-        {f'<p>{html.escape(t(lang, "boarding_option"))}: {html.escape(boarding_option)}</p>' if show_ukanc_type_fields and boarding_option else ''}
+        {render_breakdown_table(breakdown, lang)}
+      </section>
+      <section class="panel">
+        <h2>{html.escape(t(lang, "summary_next_steps"))}</h2>
+        <ul>{next_steps_html}</ul>
       </section>
     """
     if error_html:
@@ -6617,15 +6699,11 @@ def render_booking_page(connection, params, errors=None):
     submitted_group_details_html = build_submitted_group_details_html(details_data, lang)
     content += f"""
     <section class="panel">
-      <h2>Submitted group details</h2>
+      <h2>{html.escape(t(lang, "summary_submitted_details"))}</h2>
       {submitted_group_details_html}
     </section>
     <section class="panel">
-      <h2>Calculation</h2>
-      {render_breakdown_table(breakdown, lang)}
-    </section>
-    <section class="panel">
-      <form method="post" action="/book" class="booking-form summary-form">
+      <form method="post" action="/book" class="booking-form summary-form" data-clear-draft-prefix="booking-draft-">
         <input type="hidden" name="unit_id" value="{unit_id}">
         <input type="hidden" name="lang" value="{lang}">
         <input type="hidden" name="member_category" value="{html.escape(member_category)}">
@@ -6680,6 +6758,18 @@ def render_booking_page(connection, params, errors=None):
         {render_step_actions(back_to_contact, f'<button type="submit">{html.escape(t(lang, "create_booking"))}</button>', lang)}
       </form>
     </section>
+    <script>
+    (() => {{
+      const form = document.querySelector('form.summary-form[data-clear-draft-prefix]');
+      if (!form || !window.localStorage) return;
+      form.addEventListener('submit', () => {{
+        const prefix = form.dataset.clearDraftPrefix;
+        Object.keys(window.localStorage)
+          .filter((key) => key.startsWith(prefix))
+          .forEach((key) => window.localStorage.removeItem(key));
+      }});
+    }})();
+    </script>
     """
     return render_layout(t(lang, "booking"), content, lang=lang, current_path="/book", current_params=params)
 
