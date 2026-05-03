@@ -5344,7 +5344,8 @@ INFO_MAP_LOCATIONS = [
 ]
 
 
-def render_info_map_section(lang):
+def render_info_map_section(lang, locations):
+    location_lookup = {location["name"]: location for location in locations}
     locations_json = json.dumps(
         [
             {
@@ -5356,6 +5357,11 @@ def render_info_map_section(lang):
                 "lat": lat,
                 "lng": lng,
                 "requiresZoom": requires_zoom,
+                "url": (
+                    f"/period?lang={lang}&location_id={location_lookup[location_name]['id']}#location-{location_lookup[location_name]['id']}"
+                    if location_name in location_lookup
+                    else f"/period?lang={lang}"
+                ),
             }
             for location_name, lat, lng, requires_zoom in INFO_MAP_LOCATIONS
         ],
@@ -5508,7 +5514,11 @@ def render_info_map_assets():
       });
       marker.on('mouseover', () => openLocationPopup(marker, location));
       marker.on('focus', () => openLocationPopup(marker, location));
-      marker.on('click', () => openLocationPopup(marker, location));
+      marker.on('click', () => {
+        if (location.url) {
+          window.location.href = location.url;
+        }
+      });
       marker.on('mouseout', () => closeLocationPopup(marker));
       marker.on('blur', () => closeLocationPopup(marker));
       bounds.push([location.lat, location.lng]);
@@ -5534,14 +5544,16 @@ def render_information_page(connection, params):
     for location in locations:
         content = get_location_content(location["name"], lang)
         highlights = "".join(f"<li>{html.escape(item)}</li>" for item in content.get("highlights", []))
+        period_href = f"/period?lang={lang}&location_id={location['id']}#location-{location['id']}"
         place_cards.append(
             f"""
-            <article class="info-place-card">
+            <a class="info-place-card" href="{html.escape(period_href)}" style="color: inherit; text-decoration: none;">
               <h3>{html.escape(display_location_name(location["name"], lang))}</h3>
               <p>{html.escape(content.get("summary", ""))}</p>
               <ul>{highlights}</ul>
               <p class="muted"><strong>{html.escape(t(lang, "location_season_label"))}:</strong> {html.escape(content.get("season", ""))}</p>
-            </article>
+              <span class="button">{html.escape(t(lang, "info_continue"))}</span>
+            </a>
             """
         )
     content = f"""
@@ -5552,7 +5564,7 @@ def render_information_page(connection, params):
       <p>{html.escape(t(lang, "info_text"))}</p>
       <p><a class="button" href="/period?lang={lang}">{html.escape(t(lang, "info_continue"))}</a></p>
     </section>
-    {render_info_map_section(lang)}
+    {render_info_map_section(lang, locations)}
     <section class="panel">
       <h2>{html.escape(t(lang, "info_places_heading"))}</h2>
       <div class="info-place-grid">
