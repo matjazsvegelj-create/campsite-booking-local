@@ -253,6 +253,14 @@ TEXTS = {
         "admin_latest_change_request": "Latest requested change",
         "admin_internal_note": "Internal admin note",
         "admin_internal_note_help": "Private note for admins only. It is not shown to the booking contact.",
+        "admin_review_checklist": "Admin review checklist",
+        "admin_contact_checked": "Contact data checked",
+        "admin_capacity_checked": "Capacity checked",
+        "admin_tax_checked": "Tourist tax checked",
+        "admin_ngo_proof_received": "NGO proof received if applicable",
+        "admin_rentals_checked": "Rentals checked",
+        "admin_contract_prepared": "Contract prepared",
+        "admin_booking_confirmed": "Booking confirmed",
         "admin_confirm": "Confirm",
         "admin_mark_fee_paid": "Mark fee paid",
         "admin_reject": "Reject",
@@ -503,6 +511,14 @@ TEXTS = {
         "admin_latest_change_request": "Zadnja zahtevana sprememba",
         "admin_internal_note": "Interna opomba administratorja",
         "admin_internal_note_help": "Zasebna opomba samo za administratorje. Kontaktni osebi ni prikazana.",
+        "admin_review_checklist": "Kontrolni seznam pregleda",
+        "admin_contact_checked": "Kontaktni podatki preverjeni",
+        "admin_capacity_checked": "Kapaciteta preverjena",
+        "admin_tax_checked": "Turistična taksa preverjena",
+        "admin_ngo_proof_received": "Dokazilo NVO prejeto, če je potrebno",
+        "admin_rentals_checked": "Izposoja preverjena",
+        "admin_contract_prepared": "Pogodba pripravljena",
+        "admin_booking_confirmed": "Rezervacija potrjena",
         "admin_confirm": "Potrdi",
         "admin_mark_fee_paid": "Označi plačilo",
         "admin_reject": "Zavrni",
@@ -723,6 +739,15 @@ LASKI_GROUP_TYPES = [
 ]
 BOOKING_STATUSES = ["pending", "change_requested", "confirmed", "fee_paid", "cancel_requested", "cancelled", "rejected", "expired"]
 ACTIVE_BOOKING_STATUSES = ("pending", "change_requested", "confirmed", "fee_paid", "cancel_requested")
+ADMIN_REVIEW_CHECKS = [
+    ("admin_contact_checked", "admin_contact_checked"),
+    ("admin_capacity_checked", "admin_capacity_checked"),
+    ("admin_tax_checked", "admin_tax_checked"),
+    ("admin_ngo_proof_received", "admin_ngo_proof_received"),
+    ("admin_rentals_checked", "admin_rentals_checked"),
+    ("admin_contract_prepared", "admin_contract_prepared"),
+    ("admin_booking_confirmed", "admin_booking_confirmed"),
+]
 GROUP_SECTION_OPTIONS = [
     ("age_0_6", "0-6.99 years of age"),
     ("age_7_17", "7-17.99 years of age"),
@@ -2535,6 +2560,13 @@ def init_db():
                 notes text,
                 booking_token text,
                 admin_note text,
+                admin_contact_checked integer not null default 0,
+                admin_capacity_checked integer not null default 0,
+                admin_tax_checked integer not null default 0,
+                admin_ngo_proof_received integer not null default 0,
+                admin_rentals_checked integer not null default 0,
+                admin_contract_prepared integer not null default 0,
+                admin_booking_confirmed integer not null default 0,
                 created_at text not null default current_timestamp,
                 updated_at text not null default current_timestamp,
                 check (check_out > check_in)
@@ -2583,6 +2615,9 @@ def init_db():
             connection.execute("alter table bookings add column booking_token text")
         if "admin_note" not in booking_columns:
             connection.execute("alter table bookings add column admin_note text")
+        for column_name, _ in ADMIN_REVIEW_CHECKS:
+            if column_name not in booking_columns:
+                connection.execute(f"alter table bookings add column {column_name} integer not null default 0")
         bookings_table_sql_row = connection.execute(
             "select sql from sqlite_master where type = 'table' and name = 'bookings'"
         ).fetchone()
@@ -2608,6 +2643,13 @@ def init_db():
                     notes text,
                     booking_token text,
                     admin_note text,
+                    admin_contact_checked integer not null default 0,
+                    admin_capacity_checked integer not null default 0,
+                    admin_tax_checked integer not null default 0,
+                    admin_ngo_proof_received integer not null default 0,
+                    admin_rentals_checked integer not null default 0,
+                    admin_contract_prepared integer not null default 0,
+                    admin_booking_confirmed integer not null default 0,
                     created_at text not null default current_timestamp,
                     updated_at text not null default current_timestamp,
                     check (check_out > check_in)
@@ -2615,11 +2657,15 @@ def init_db():
 
                 insert into bookings (
                     id, bookable_unit_id, guest_name, guest_email, guest_phone, check_in, check_out,
-                    guest_count, status, total_price, created_by_admin, overbook_allowed, notes, booking_token, admin_note, created_at, updated_at
+                    guest_count, status, total_price, created_by_admin, overbook_allowed, notes, booking_token, admin_note,
+                    admin_contact_checked, admin_capacity_checked, admin_tax_checked, admin_ngo_proof_received,
+                    admin_rentals_checked, admin_contract_prepared, admin_booking_confirmed, created_at, updated_at
                 )
                 select
                     id, bookable_unit_id, guest_name, guest_email, guest_phone, check_in, check_out,
-                    guest_count, status, total_price, created_by_admin, overbook_allowed, notes, booking_token, admin_note, created_at, updated_at
+                    guest_count, status, total_price, created_by_admin, overbook_allowed, notes, booking_token, admin_note,
+                    admin_contact_checked, admin_capacity_checked, admin_tax_checked, admin_ngo_proof_received,
+                    admin_rentals_checked, admin_contract_prepared, admin_booking_confirmed, created_at, updated_at
                 from bookings_old;
 
                 drop table bookings_old;
@@ -2910,6 +2956,47 @@ def extract_latest_change_request(notes):
         return ""
     latest = requests[-1]
     return latest.split(":", 1)[1].strip() if ":" in latest else latest
+
+
+def admin_review_checklist_items(booking, lang):
+    return [
+        {
+            "name": column_name,
+            "label": t(lang, label_key),
+            "checked": str(booking.get(column_name, 0)) in {"1", "True", "true"},
+        }
+        for column_name, label_key in ADMIN_REVIEW_CHECKS
+    ]
+
+
+def render_admin_review_checklist_inputs(booking, lang, form_id):
+    items = admin_review_checklist_items(booking, lang)
+    return f"""
+    <fieldset class="admin-review-checklist">
+      <legend>{html.escape(t(lang, "admin_review_checklist"))}</legend>
+      {''.join(
+          f'''
+          <label class="checkbox">
+            <input type="checkbox" name="{html.escape(item["name"])}" value="1" form="{html.escape(form_id)}"{" checked" if item["checked"] else ""}>
+            {html.escape(item["label"])}
+          </label>
+          '''
+          for item in items
+      )}
+    </fieldset>
+    """
+
+
+def render_admin_review_checklist_summary(booking, lang):
+    items = admin_review_checklist_items(booking, lang)
+    return f"""
+    <section class="panel">
+      <h2>{html.escape(t(lang, "admin_review_checklist"))}</h2>
+      <ul>
+        {''.join(f'<li>{"[x]" if item["checked"] else "[ ]"} {html.escape(item["label"])}</li>' for item in items)}
+      </ul>
+    </section>
+    """
 
 
 def parse_booking_notes_metadata(notes):
@@ -7121,6 +7208,7 @@ def render_admin_page(connection, notice="", filters=None):
                       <small>{html.escape(t(lang, "admin_internal_note_help"))}</small>
                       <textarea name="admin_note" rows="2" form="{form_id}">{html.escape(admin_note_value)}</textarea>
                     </label>
+                    {render_admin_review_checklist_inputs(booking, lang, form_id)}
                   </td>
                 </tr>
                 """
@@ -7142,6 +7230,7 @@ def render_admin_page(connection, notice="", filters=None):
             if booking.get("admin_note")
             else ""
         )
+        checklist_html = render_admin_review_checklist_summary(booking, lang)
         if booking_view:
             booking_detail_modals.append(
                 f"""
@@ -7158,6 +7247,7 @@ def render_admin_page(connection, notice="", filters=None):
                     <div class="admin-modal-body">
                       {latest_change_html}
                       {admin_note_html}
+                      {checklist_html}
                       <section class="panel">
                         <h2>{html.escape(t(lang, "admin_reservation_details"))}</h2>
                         {build_submitted_group_details_html(booking_view['details_data'], lang)}
@@ -7651,9 +7741,17 @@ def application(environ, start_response):
                     selected_status = form.get("quick_status", "").strip() or form.get("status", "pending").strip() or "pending"
                     if selected_status not in BOOKING_STATUSES:
                         selected_status = "pending"
+                    checklist_values = [1 if form.get(column_name) == "1" else 0 for column_name, _ in ADMIN_REVIEW_CHECKS]
                     connection.execute(
-                        "update bookings set status = ?, admin_note = ?, updated_at = current_timestamp where id = ?",
-                        (selected_status, form.get("admin_note", "").strip(), booking_id),
+                        f"""
+                        update bookings
+                        set status = ?,
+                            admin_note = ?,
+                            {", ".join(f"{column_name} = ?" for column_name, _ in ADMIN_REVIEW_CHECKS)},
+                            updated_at = current_timestamp
+                        where id = ?
+                        """,
+                        (selected_status, form.get("admin_note", "").strip(), *checklist_values, booking_id),
                     )
                     connection.commit()
                     return_anchor = form.get("return_anchor", "").strip() or f"booking-{booking_id}"
