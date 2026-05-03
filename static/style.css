@@ -801,28 +801,12 @@ button:hover,
   gap: 1rem;
 }
 
-.step-actions > button,
-.step-actions > .button {
-  flex: 1 1 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 2.9rem;
-  text-align: center;
-}
-
 .button-reset {
   margin-inline: auto;
   padding: 0.45rem 0.8rem;
   background: #c2452f;
   color: #fff;
   font-size: 0.82rem;
-}
-
-.step-actions > .button-reset {
-  margin-inline: 0;
-  padding: 0.85rem 1.2rem;
-  font-size: inherit;
 }
 
 .button-reset:hover {
