@@ -3676,19 +3676,22 @@ def get_boarding_option(options, key):
 
 def render_steps(active_step, lang):
     steps = [
-        ("Information", t(lang, "information")),
-        ("Period", t(lang, "period")),
-        ("Type", t(lang, "type")),
-        ("Group details", t(lang, "group_details")),
-        ("Contact details", t(lang, "contact_details")),
-        ("Rental", t(lang, "rental")),
-        ("Other information", t(lang, "other_information")),
-        ("Summary", t(lang, "summary")),
+        ("Information", t(lang, "information"), f"/?lang={lang}"),
+        ("Period", t(lang, "period"), f"/period?lang={lang}"),
+        ("Type", t(lang, "type"), ""),
+        ("Group details", t(lang, "group_details"), ""),
+        ("Contact details", t(lang, "contact_details"), ""),
+        ("Rental", t(lang, "rental"), ""),
+        ("Other information", t(lang, "other_information"), ""),
+        ("Summary", t(lang, "summary"), ""),
     ]
     pills = []
-    for step, label in steps:
+    for step, label, href in steps:
         cls = "step-pill active" if step == active_step else "step-pill"
-        pills.append(f'<span class="{cls}">{html.escape(label)}</span>')
+        if href:
+            pills.append(f'<a class="{cls}" href="{html.escape(href)}">{html.escape(label)}</a>')
+        else:
+            pills.append(f'<span class="{cls}">{html.escape(label)}</span>')
     return f'<div class="stepper">{"".join(pills)}</div>'
 
 
