@@ -6,7 +6,7 @@
   --line: #d8cfbc;
   --accent: #2f6a46;
   --accent-strong: #214b31;
-  --error: #9d3f24;
+  --error: #9d3f24;when
 }
 
 * {
@@ -1073,6 +1073,18 @@ button:hover,
   color: #fff;
 }
 
+.step-pill::after {
+  content: "→";
+  margin-left: 0.6rem;
+  color: #333;
+  font-size: 1.1rem;
+  font-weight: bold;
+}
+
+.step-pill:last-child::after {
+  content: none;
+}
+
 .type-layout {
   display: grid;
   grid-template-columns: 1.3fr 1fr;
@@ -2082,6 +2094,11 @@ td {
     padding: 0.5rem 0.8rem;
     font-size: 0.95rem;
   }
+
+  .step-pill::after {
+    font-size: 1rem;
+    margin-left: 0.4rem;
+  }
 }
 
 @media (max-width: 540px) {
@@ -2188,5 +2205,10 @@ td {
     flex: 0 0 auto;
     white-space: nowrap;
     font-size: 0.9rem;
+  }
+
+  .step-pill::after {
+    font-size: 0.9rem;
+    margin-left: 0.3rem;
   }
 }

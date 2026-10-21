@@ -1,6 +1,6 @@
 import html
 import os
-import cgi
+from multipart import parse_form_data
 import json
 import re
 import secrets
@@ -2370,17 +2370,17 @@ def email_is_configured():
 
 
 def save_uploaded_image(environ):
-    form = cgi.FieldStorage(fp=environ["wsgi.input"], environ=environ, keep_blank_values=True)
-    lang = get_lang(form.getfirst("lang", "en"))
-    return_to = form.getfirst("return_to", "/")
+    fields, files = parse_form_data(environ)
+    lang = get_lang(fields.get("lang", "en"))
+    return_to = fields.get("return_to", "/")
     if not is_admin_request(environ):
         return lang, "Admin login required.", return_to
-    target_type = form.getfirst("target_type", "")
-    location_name = form.getfirst("location_name", "")
-    unit_name = form.getfirst("unit_name", "")
-    raw_uploads = form["image"] if "image" in form else []
+    target_type = fields.get("target_type", "")
+    location_name = fields.get("location_name", "")
+    unit_name = fields.get("unit_name", "")
+    raw_uploads = files.getall("image")
     uploads = raw_uploads if isinstance(raw_uploads, list) else [raw_uploads]
-    uploads = [upload for upload in uploads if getattr(upload, "filename", "")]
+    uploads = [upload for upload in uploads if getattr(upload, "filename", None)]
     if not uploads:
         return lang, "No image selected.", return_to
 
