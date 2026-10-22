@@ -59,7 +59,7 @@ LOCATION_CONTENT = {
         },
         "sl": {
             "summary": "Velik poletni taborni prostor v Bohinju s tremi podtabori za skupine, ki potrebujejo prilagodljivo razporeditev in hiter dostop do jezerskega območja.",
-            "highlights": ["Do 125 gostov skupaj v 3 podtaborih. V kolikor vas je toliko, morate rezervirati vsak podtabor posebej, da dosežete željeno število rezervacij.", "Lokacija za poletno sezono", "Primerno za večje tabore"],
+            "highlights": ["Do 125 gostov skupaj v 3 podtaborih. Če je vaša skupina tako velika, morate vsak podtabor rezervirati posebej, da dosežete želeno število rezervacij.", "Lokacija za poletno sezono", "Primerno za večje tabore"],
             "season": "Odprto od 15. maja do 15. septembra",
         },
     },
@@ -96,7 +96,7 @@ LOCATION_CONTENT = {
         "sl": {
             "summary": "Osrednji taborni prostor v Bohinju ob Bohinjskem jezeru s prilagodljivo namestitvijo in sezonskimi možnostmi oskrbe za večje skupine.",
             "highlights": ["Do 120 gostov", "Blizu Bohinjskega jezera", "Na voljo so možnosti oskrbe"],
-            "season": "Odprto od 15. maja do 15. septembra. Razpolo?ljivost je odvisna od sezone in vrste oskrbe",
+            "season": "Odprto od 15. maja do 15. septembra. Razpoložljivost je odvisna od sezone in vrste oskrbe",
         },
     },
     "Gozdna sola Ukanc": {
@@ -108,7 +108,7 @@ LOCATION_CONTENT = {
         "sl": {
             "summary": "Notranja namestitev Gozdne šole za skupine, ki potrebujejo postelje, skupne notranje prostore in dostop do Bohinja na eni lokaciji.",
             "highlights": ["Do 38 postelj", "Hišna namestitev", "Jedilnica in skupni prostori"],
-            "season": "Odprto vse leto",
+            "season": "Odprto vse leto. Razpoložljivost je odvisna od sezone in vrste oskrbe. Zunaj glavne sezone (od 15. septembra do 15. maja) je potrebno najmanj 20 oseb.",
         },
     },
     "Taborni prostor Baredi": {
@@ -143,6 +143,10 @@ TEXTS = {
         "prototype": "Local Prototype",
         "information": "Locations",
         "info_page_title": "Scout Centre booking site",
+        "site_logo_alt": "Scout Centre Bohinj",
+        "overview": "Overview",
+        "calendar_previous_month": "Previous month",
+        "calendar_next_month": "Next month",
         "period": "Period",
         "type": "Type",
         "booking": "Booking",
@@ -426,7 +430,11 @@ TEXTS = {
         "admin": "Admin",
         "prototype": "Lokalni prototip",
         "information": "Lokacije",
-        "info_page_title": "Rezervacija skavtskih centrov",
+        "info_page_title": "Rezervacije taborniških centrov",
+        "site_logo_alt": "Taborniški center Bohinj",
+        "overview": "Pregled",
+        "calendar_previous_month": "Prejšnji mesec",
+        "calendar_next_month": "Naslednji mesec",
         "period": "Termin",
         "type": "Tip",
         "booking": "Rezervacija",
@@ -646,8 +654,8 @@ TEXTS = {
         "requested_changes_help": "Zapišite vse ostalo, kar naj se spremeni, na primer termin, izposoja, starostne skupine, dokumenti ali zahteva za preklic.",
         "save_change_request": "Shrani zahtevo za spremembo",
         "info_eyebrow": "Pred izbiro termina",
-        "info_title": "Pregled taborniških in skupinskih nastanitev.",
-        "info_text": "Na tej prvi strani so zbrane osnovne informacije o lokacijah, praktične opombe ter prostor za dokumente in uporabne povezave pred nadaljevanjem na izbiro termina.",
+        "info_title": "Pregled lokacij",
+        "info_text": "Na tej strani si oglejte razpoložljive lokacije, praktične napotke in uporabne dokumente, preden nadaljujete z izbiro termina in preverjanjem razpoložljivosti.",
         "info_continue": "Preveri razpoložljivost",
         "info_card_choose_dates": "Preveri razpoložljivost",
         "info_show_on_map": "Prikaži na zemljevidu",
@@ -667,14 +675,14 @@ TEXTS = {
         "info_document_nature_pzs": "Poletni nasveti za varno obiskovanje gora",
         "info_document_nature_tnp": "Zemljevid Triglavskega narodnega parka",
         "info_document_campsite_heading": "Pravila tabornih prostorov",
-        "info_document_campsite_tc": "Pravila tabornih prostorov TC",
+        "info_document_campsite_tc": "Pravila obnašanja v taborniškem centru",
         "info_document_campsite_laski": "Pravila obnašanja na taboru Laški rovt",
         "info_document_campsite_bohinj": "Pravila obnašanja v Bohinju",
         "info_document_other_heading": "Drugi dokumenti in informacije",
         "info_document_contact_notice": "Za vprašanja pred rezervacijo pošljite e-pošto na tc.bohinj@taborniki.si.",
         "info_document_other_izola": "Program LD Izola",
         "info_document_other_participants": "Seznam udeležencev GS-ZTS",
-        "info_document_other_sales": "Prodajne akcije za skavte",
+        "info_document_other_sales": "Prodajne akcije za tabornike",
         "info_document_other_radlje": "Kaj početi v Radljah ob Dravi in okolici",
         "info_document_note": "Povezave do dokumentov lahko kasneje zamenjamo s končnimi PDF-ji ali zunanjimi stranmi.",
         "landing_eyebrow": "Bohinjske in taborniške nastanitve",
@@ -5238,7 +5246,7 @@ def render_layout(
     except OSError:
         style_version = 1
     return f"""<!doctype html>
-<html lang="en">
+<html lang="{get_lang(lang)}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -5250,7 +5258,7 @@ def render_layout(
   <div class="site-navigation">
   <header class="site-header">
     <div class="site-brand">
-      <img class="site-logo" src="/static/scout-centre-logo.svg" alt="Scout Centre Bohinj" width="213" height="156">
+      <img class="site-logo" src="/static/scout-centre-logo.svg" alt="{html.escape(t(lang, 'site_logo_alt'))}" width="213" height="156">
       <h1>{html.escape(title)}</h1>
     </div>
     <div class="header-right">
@@ -5268,10 +5276,10 @@ def render_layout(
     {content}
   </main>
   <div class="image-lightbox" hidden>
-    <button type="button" class="image-lightbox-close" aria-label="Close">x</button>
-    <button type="button" class="image-lightbox-nav image-lightbox-prev" aria-label="Previous picture">&lt;</button>
+    <button type="button" class="image-lightbox-close" aria-label="{html.escape(t(lang, 'gallery_close'))}">x</button>
+    <button type="button" class="image-lightbox-nav image-lightbox-prev" aria-label="{html.escape(t(lang, 'gallery_previous'))}">&lt;</button>
     <img src="" alt="">
-    <button type="button" class="image-lightbox-nav image-lightbox-next" aria-label="Next picture">&gt;</button>
+    <button type="button" class="image-lightbox-nav image-lightbox-next" aria-label="{html.escape(t(lang, 'gallery_next'))}">&gt;</button>
   </div>
   <script>
   (() => {{
@@ -5756,7 +5764,7 @@ def render_information_page(connection, params):
         ]
         for unit in location["units"]:
             gallery_items.extend(
-                {"url": image["url"], "caption": image.get("caption", "") or unit["name"]}
+                {"url": image["url"], "caption": image.get("caption", "") or display_location_with_unit(location["name"], unit["name"], lang)}
                 for image in get_unit_gallery(location["name"], unit["name"])
             )
         gallery_button_html = (
@@ -5872,7 +5880,7 @@ def render_search_page(connection, params, errors=None):
         <p>{html.escape(t(lang, "landing_text"))}</p>
         <p class="muted">{html.escape(t(lang, "choose_intro"))}</p>
       </div>
-      <div class="landing-stats" aria-label="Overview">
+      <div class="landing-stats" aria-label="{html.escape(t(lang, 'overview'))}">
         <article class="landing-stat">
           <strong>{len(locations)}</strong>
           <span>{html.escape(t(lang, "landing_stat_locations"))}</span>
@@ -6075,9 +6083,9 @@ def render_search_page(connection, params, errors=None):
                       <button type="button" class="checkout-trigger">{html.escape(card_check_in or t(lang, "check_in"))}</button>
                       <div class="checkout-calendar" hidden>
                         <div class="checkout-calendar-nav">
-                          <button type="button" class="calendar-prev" aria-label="Previous month">&lsaquo;</button>
+                          <button type="button" class="calendar-prev" aria-label="{html.escape(t(lang, 'calendar_previous_month'))}">&lsaquo;</button>
                           <strong class="checkout-calendar-month"></strong>
-                          <button type="button" class="calendar-next" aria-label="Next month">&rsaquo;</button>
+                          <button type="button" class="calendar-next" aria-label="{html.escape(t(lang, 'calendar_next_month'))}">&rsaquo;</button>
                         </div>
                         <div class="checkout-calendar-weekdays">
                           <span>Mo</span>
@@ -6099,9 +6107,9 @@ def render_search_page(connection, params, errors=None):
                       <button type="button" class="checkout-trigger" disabled>{html.escape(card_check_out or t(lang, "check_out"))}</button>
                       <div class="checkout-calendar" hidden>
                         <div class="checkout-calendar-nav">
-                          <button type="button" class="calendar-prev" aria-label="Previous month">&lsaquo;</button>
+                          <button type="button" class="calendar-prev" aria-label="{html.escape(t(lang, 'calendar_previous_month'))}">&lsaquo;</button>
                           <strong class="checkout-calendar-month"></strong>
-                          <button type="button" class="calendar-next" aria-label="Next month">&rsaquo;</button>
+                          <button type="button" class="calendar-next" aria-label="{html.escape(t(lang, 'calendar_next_month'))}">&rsaquo;</button>
                         </div>
                         <div class="checkout-calendar-weekdays">
                           <span>Mo</span>
