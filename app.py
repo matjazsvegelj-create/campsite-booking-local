@@ -54,12 +54,12 @@ LOCATION_CONTENT = {
     "Laski rovt ZTS": {
         "en": {
             "summary": "A large summer campsite in Bohinj with three subcamps for scout groups that want flexible layouts and fast access to the lake area.",
-            "highlights": ["Up to 125 guests across 3 subcamps. Choose a subcamp, or reserve the whole site for groups of more than 90 guests.", "Summer season location", "Best for larger group camps"],
+            "highlights": ["Up to 125 guests across 3 subcamps. Choose a subcamp, or reserve the whole site with a minimum charge for 100 people per night.", "Summer season location", "Best for larger group camps"],
             "season": "Open from 15 May to 15 September",
         },
         "sl": {
             "summary": "Velik poletni taborni prostor v Bohinju s tremi podtabori za skupine, ki potrebujejo prilagodljivo razporeditev in hiter dostop do jezerskega območja.",
-            "highlights": ["Do 125 gostov v 3 podtaborih. Izberite podtabor ali za skupine z več kot 90 gosti rezervirajte celoten taborni prostor.", "Lokacija za poletno sezono", "Primerno za večje tabore"],
+            "highlights": ["Do 125 gostov v 3 podtaborih. Izberite podtabor ali rezervirajte celoten taborni prostor z najmanjšim obračunom za 100 oseb na noč.", "Lokacija za poletno sezono", "Primerno za večje tabore"],
             "season": "Odprto od 15. maja do 15. septembra",
         },
     },
@@ -150,8 +150,8 @@ TEXTS = {
         "choose_subcamp": "Choose your subcamp",
         "choose_subcamp_first": "Choose a subcamp first, then select your dates.",
         "whole_site": "Whole site (Subcamps 1, 2 and 3)",
-        "whole_site_help": "Groups of more than 90 guests can reserve the whole site, up to 125 guests. All three subcamps must be available.",
-        "whole_site_minimum": "The whole-site option is available for groups of more than 90 guests.",
+        "whole_site_help": "Reserve all three subcamps together for up to 125 guests. All three subcamps must be available.",
+        "whole_site_minimum": "Minimum accommodation charge: 100 people per night.",
         "selected_unit_capacity": "The selected subcamp cannot accept this many guests. Choose another option or reduce the guest count.",
         "availability_by_unit": "Availability by unit",
         "no_reservations": "No reservations in this period.",
@@ -449,8 +449,8 @@ TEXTS = {
         "choose_subcamp": "Izberite podtabor",
         "choose_subcamp_first": "Najprej izberite podtabor, nato izberite termin.",
         "whole_site": "Celoten taborni prostor (podtabori 1, 2 in 3)",
-        "whole_site_help": "Skupine z več kot 90 gosti lahko rezervirajo celoten taborni prostor za največ 125 gostov. Vsi trije podtabori morajo biti prosti.",
-        "whole_site_minimum": "Celoten taborni prostor lahko rezervirajo skupine z več kot 90 gosti.",
+        "whole_site_help": "Rezervirajte vse tri podtabore skupaj za največ 125 gostov. Vsi trije podtabori morajo biti prosti.",
+        "whole_site_minimum": "Najmanjši obračun nastanitve: 100 oseb na noč.",
         "selected_unit_capacity": "Izbrani podtabor ne more sprejeti toliko gostov. Izberite drugo možnost ali zmanjšajte število gostov.",
         "availability_by_unit": "Razpoložljivost po enotah",
         "no_reservations": "V tem obdobju ni rezervacij.",
@@ -1661,6 +1661,7 @@ def build_summary_breakdown(connection, unit, check_in, check_out, guest_count, 
     rows = []
     total_amount = Decimal("0.00")
     summary_price_text = ""
+    charged_guest_count = max(100, guest_count) if unit["is_whole_site"] else guest_count
 
     if is_ukanc_location(unit["location_name"]) and boarding_option:
         season = detect_pricing_season(check_in, check_out)
@@ -1712,7 +1713,7 @@ def build_summary_breakdown(connection, unit, check_in, check_out, guest_count, 
             })
             summary_price_text = " | ".join(format_boarding_prices(selected_boarding_option, seasons))
     elif is_laski_location(unit["location_name"]) and laski_group_type == "taborniki_zts":
-        remaining = guest_count
+        remaining = charged_guest_count
         bands = [
             ("Accommodation fee - first 50 participants", 50, Decimal("2.00")),
             ("Accommodation fee - participants 51-100", 50, Decimal("1.70")),
@@ -1732,16 +1733,16 @@ def build_summary_breakdown(connection, unit, check_in, check_out, guest_count, 
                 "amount": format_currency(amount),
             })
             remaining -= band_guests
-        nightly_total = calculate_laski_zts_nightly_total(guest_count)
-        average = (nightly_total / Decimal(guest_count)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        nightly_total = calculate_laski_zts_nightly_total(charged_guest_count)
+        average = (nightly_total / Decimal(charged_guest_count)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         summary_price_text = f"Estimated average {format_currency(average)} per person per night"
     else:
         rate = money(unit["price_per_guest_per_night"])
-        amount = (rate * guest_count * total_nights).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        amount = (rate * charged_guest_count * total_nights).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         total_amount += amount
         rows.append({
             "label": "Accommodation fee",
-            "participants": str(guest_count),
+            "participants": str(charged_guest_count),
             "nights": str(total_nights),
             "price": format_currency(rate),
             "amount": format_currency(amount),
@@ -1794,6 +1795,7 @@ def build_summary_breakdown(connection, unit, check_in, check_out, guest_count, 
 
     return {
         "rows": rows,
+        "whole_site": bool(unit["is_whole_site"]),
         "total_nights": total_nights,
         "total_amount": total_amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
         "summary_price_text": summary_price_text,
@@ -1849,6 +1851,7 @@ def render_breakdown_table(breakdown, lang="en"):
         """
     )
     return f"""
+    {f'<p class="muted">{html.escape(t(lang, "whole_site_minimum"))}</p>' if breakdown.get("whole_site") else ''}
     <div class="table-wrap summary-breakdown-wrap">
       <table class="summary-breakdown-table">
         <thead>
@@ -2884,8 +2887,6 @@ def capacity_check(connection, unit_id, check_in, check_out, guest_count, exclud
         connection, unit_id, check_in, check_out, exclude_booking_id=exclude_booking_id
     )
     violations = []
-    if unit["is_whole_site"] and guest_count <= 90:
-        violations.append(t("en", "whole_site_minimum"))
     nightly = []
     for stay_date in daterange(check_in, check_out):
         reserved = reservations.get(stay_date, 0)
@@ -3869,7 +3870,7 @@ def render_type_page(connection, params, errors=None):
     laski_flow = is_laski_location(location["name"])
     selected_boarding_option = None
     available_units = []
-    booking_units = location["units"] + ([location["whole_site_unit"]] if location["whole_site_unit"] and requested_guest_count > 90 else [])
+    booking_units = location["units"] + ([location["whole_site_unit"]] if location["whole_site_unit"] else [])
     for unit in booking_units:
         if selected_unit_id and str(unit["id"]) != selected_unit_id:
             continue
@@ -4131,6 +4132,7 @@ def render_type_page(connection, params, errors=None):
             <article class="unit-card">
               {unit_title}
               <p>{html.escape(tf(lang, "capacity_guests", count=unit["max_guests"]))}</p>
+              {f'<p>{html.escape(t(lang, "whole_site_minimum"))}</p>' if unit["is_whole_site"] else ''}
               {price_line}
               {status}
               {action}
@@ -6019,11 +6021,11 @@ def render_search_page(connection, params, errors=None):
             choices = []
             for unit in location["units"] + [location["whole_site_unit"]]:
                 checked = " checked" if str(unit["id"]) == card_unit_id else ""
-                disabled = " disabled" if unit["is_whole_site"] and (not card_guest_count.isdecimal() or int(card_guest_count) <= 90) else ""
+                minimum_charge_html = f'<br><small>{html.escape(t(lang, "whole_site_minimum"))}</small>' if unit["is_whole_site"] else ""
                 choices.append(f'''
                   <label class="choice-item">
-                    <input type="radio" name="unit_id" value="{unit['id']}" data-capacity="{unit['max_guests']}" data-whole-site="{unit['is_whole_site']}" required{checked}{disabled}>
-                    <span>{html.escape(display_unit_name(unit['name'], lang))}<br><small>{html.escape(tf(lang, 'capacity_guests', count=unit['max_guests']))}</small></span>
+                    <input type="radio" name="unit_id" value="{unit['id']}" data-capacity="{unit['max_guests']}" data-whole-site="{unit['is_whole_site']}" required{checked}>
+                    <span>{html.escape(display_unit_name(unit['name'], lang))}<br><small>{html.escape(tf(lang, 'capacity_guests', count=unit['max_guests']))}</small>{minimum_charge_html}</span>
                   </label>
                 ''')
             unit_selection_html = f'''
@@ -6629,10 +6631,6 @@ def render_search_page(connection, params, errors=None):
         const recalc = () => {
           availabilityRequestId += 1;
           const guestCount = Number.parseInt(guestCountInput.value || '0', 10);
-          unitInputs.filter(input => input.dataset.wholeSite === '1').forEach(input => {
-            input.disabled = guestCount <= 90 || !Number.isFinite(guestCount);
-            if (input.disabled) input.checked = false;
-          });
           const unitId = selectedUnit() ? selectedUnit().value : '';
           if (unitId !== lastSelectedUnitId) {
             lastSelectedUnitId = unitId;
@@ -8176,12 +8174,6 @@ def application(environ, start_response):
                             requested_unit = None
                         if not requested_unit or requested_unit["location_id"] != location_id:
                             errors.append(t(get_lang(params.get("lang", "en")), "selected_unit_not_found"))
-                        elif requested_unit["is_whole_site"]:
-                            try:
-                                if int(params.get("guest_count", "0")) <= 90:
-                                    errors.append(t(get_lang(params.get("lang", "en")), "whole_site_minimum"))
-                            except ValueError:
-                                pass
                     if location and requested_check_in and requested_check_out:
                         if not is_location_date_range_allowed(location["name"], requested_check_in, requested_check_out):
                             errors.append("Selected dates are outside the allowed period for this location.")
