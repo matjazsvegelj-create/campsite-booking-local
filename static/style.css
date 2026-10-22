@@ -1,5 +1,5 @@
 :root {
-  --bg: #f3efe4;
+  --bg: #efe7d2;
   --panel: #fffaf0;
   --ink: #203127;
   --muted: #617265;
@@ -17,9 +17,7 @@ body {
   margin: 0;
   font-family: Georgia, "Times New Roman", serif;
   color: var(--ink);
-  background:
-    radial-gradient(circle at top right, rgba(47, 106, 70, 0.12), transparent 24rem),
-    linear-gradient(180deg, #efe7d2 0%, var(--bg) 40%, #efe6d7 100%);
+  background: var(--bg);
 }
 
 a {
@@ -27,13 +25,26 @@ a {
 }
 
 main {
-  max-width: 1100px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 0 1rem 3rem;
 }
 
+.site-navigation {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: var(--bg);
+}
+
+.site-navigation .stepper {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1rem 1rem;
+}
+
 .site-header {
-  max-width: 1100px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 2rem 1rem 1rem;
   display: flex;
@@ -158,9 +169,10 @@ main {
 }
 
 .info-place-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.9rem;
+  justify-content: center;
 }
 
 .info-place-card {
@@ -170,6 +182,8 @@ main {
   border: 1px solid var(--line);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.58);
+  flex: 0 0 calc(25% - 0.675rem);
+  min-width: 200px;
 }
 
 .info-place-card h3,
@@ -180,6 +194,152 @@ main {
 .info-place-card ul {
   margin: 0;
   padding-left: 1.1rem;
+}
+
+.info-place-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.info-place-pin {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.8);
+  color: #2a7fd4;
+  cursor: pointer;
+}
+
+.info-place-pin:hover,
+.info-place-pin:focus-visible {
+  background: #2a7fd4;
+  color: #fff;
+}
+
+.info-place-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+}
+
+.info-place-gallery {
+  color: var(--accent-strong);
+}
+
+.info-place-gallery:hover,
+.info-place-gallery:focus-visible {
+  background: var(--accent-strong);
+}
+
+.gallery-dialog {
+  width: min(1100px, 94vw);
+  max-height: 94vh;
+  padding: 1rem 1.25rem 1.25rem;
+  border: none;
+  border-radius: 20px;
+  background: #fffdf7;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
+.gallery-dialog::backdrop {
+  background: rgba(20, 30, 22, 0.72);
+}
+
+.gallery-dialog[open] {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.gallery-dialog-head {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.gallery-dialog-title {
+  margin: 0;
+  flex: 1 1 auto;
+}
+
+.gallery-dialog-close {
+  width: 2.4rem;
+  height: 2.4rem;
+  padding: 0;
+  border-radius: 999px;
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.gallery-dialog-stage {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.gallery-dialog-stage figure {
+  margin: 0;
+  display: grid;
+  gap: 0.4rem;
+  justify-items: center;
+}
+
+.gallery-dialog-image {
+  display: block;
+  max-width: 100%;
+  max-height: 68vh;
+  object-fit: contain;
+  border-radius: 14px;
+}
+
+.gallery-dialog-caption {
+  color: var(--muted);
+  text-align: center;
+}
+
+.gallery-dialog-nav {
+  width: 2.8rem;
+  height: 2.8rem;
+  padding: 0;
+  border-radius: 999px;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.gallery-dialog-thumbs {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.gallery-dialog-thumbs img {
+  flex: 0 0 auto;
+  width: 96px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  opacity: 0.65;
+  cursor: pointer;
+}
+
+.gallery-dialog-thumbs img.active {
+  border-color: var(--accent-strong);
+  opacity: 1;
+}
+
+.gallery-dialog--single .gallery-dialog-nav,
+.gallery-dialog--single .gallery-dialog-thumbs {
+  visibility: hidden;
 }
 
 .info-place-card .button {
@@ -415,16 +575,49 @@ main {
   font-size: 1.08rem;
 }
 
+.location-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  justify-content: center;
+}
+
 .location-card {
   display: grid;
   gap: 1.25rem;
+  flex: 0 1 calc(50% - 0.625rem);
+  min-width: 0;
+  align-content: start;
+}
+
+.location-card > * {
+  min-width: 0;
 }
 
 .location-overview {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(18rem, 0.95fr);
+  grid-template-columns: 1fr;
   gap: 1.2rem;
   align-items: start;
+}
+
+.location-overview-media {
+  order: -1;
+}
+
+.location-card .location-search-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.location-card .location-search-form .stay-details,
+.location-card .location-search-form > button[type="submit"] {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 1100px) {
+  .location-card {
+    flex-basis: 100%;
+  }
 }
 
 .location-overview-main {
@@ -483,6 +676,11 @@ main {
 
 .location-overview-media .location-gallery {
   margin: 0;
+}
+
+.location-overview-media .location-image {
+  height: 260px;
+  max-height: none;
 }
 
 .booking-entry {
@@ -1061,28 +1259,29 @@ button:hover,
 
 .step-pill {
   padding: 0.55rem 0.95rem;
-  border-radius: 999px;
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.7);
   border: 1px solid var(--line);
   color: var(--muted);
 }
 
 .step-pill.active {
+  border-radius: 999px;
   background: #a12f3c;
   border-color: #a12f3c;
   color: #fff;
 }
 
-.step-pill::after {
-  content: "→";
-  margin-left: 0.6rem;
-  color: #333;
-  font-size: 1.1rem;
+.step-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.8rem;
+  color: #666;
+  font-size: 1.2rem;
   font-weight: bold;
-}
-
-.step-pill:last-child::after {
-  content: none;
+  line-height: 1;
+  flex: 0 0 auto;
 }
 
 .type-layout {
@@ -1456,7 +1655,7 @@ button:hover,
 }
 
 .notice {
-  max-width: 1100px;
+  max-width: 1400px;
   margin: 0 auto 1rem;
   background: rgba(47, 106, 70, 0.12);
   color: var(--accent-strong);
@@ -2095,9 +2294,9 @@ td {
     font-size: 0.95rem;
   }
 
-  .step-pill::after {
+  .step-arrow {
     font-size: 1rem;
-    margin-left: 0.4rem;
+    padding: 0 0.6rem;
   }
 }
 
@@ -2123,6 +2322,10 @@ td {
 
   .site-header {
     padding: 1rem 0.75rem 0.75rem;
+  }
+
+  .site-navigation .stepper {
+    padding: 0 0.75rem 0.75rem;
   }
 
   .site-header h1 {
@@ -2207,8 +2410,8 @@ td {
     font-size: 0.9rem;
   }
 
-  .step-pill::after {
+  .step-arrow {
     font-size: 0.9rem;
-    margin-left: 0.3rem;
+    padding: 0 0.5rem;
   }
 }

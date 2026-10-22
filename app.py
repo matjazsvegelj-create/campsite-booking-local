@@ -141,7 +141,8 @@ TEXTS = {
         "search": "Search",
         "admin": "Admin",
         "prototype": "Local Prototype",
-        "information": "Information",
+        "information": "Locations",
+        "info_page_title": "Scout Centre booking site",
         "period": "Period",
         "type": "Type",
         "booking": "Booking",
@@ -361,12 +362,18 @@ TEXTS = {
         "requested_changes_help": "Write anything else that should change, for example dates, rentals, age groups, documents, or cancellation request.",
         "save_change_request": "Save change request",
         "info_eyebrow": "Before you choose dates",
-        "info_title": "Scout and group stays in one overview.",
-        "info_text": "Use this first page to review the available places, practical notes, and useful documents before you continue to the date and availability step.",
-        "info_continue": "Continue to period selection",
+        "info_title": "Site location overview",
+        "info_text": "Use this page to review the available places, practical notes, and useful documents before you continue to the date and availability step.",
+        "info_continue": "Check availability",
+        "info_card_choose_dates": "Check availability",
+        "info_show_on_map": "Show on map",
+        "info_show_gallery": "Photo gallery",
+        "gallery_close": "Close",
+        "gallery_previous": "Previous photo",
+        "gallery_next": "Next photo",
         "info_map_heading": "Locations map",
         "info_map_text": "Zoom in or out and select a pin to view the campsite location.",
-        "info_places_heading": "Places overview",
+        "info_places_heading": "Locations",
         "info_documents_heading": "Documents and useful links",
         "info_document_rules": "House rules and camp instructions",
         "info_document_prices": "Price and rental information",
@@ -376,7 +383,7 @@ TEXTS = {
         "info_document_nature_pzs": "Summer mountaineering safety tips",
         "info_document_nature_tnp": "Triglav National Park map",
         "info_document_campsite_heading": "Campsite rules",
-        "info_document_campsite_tc": "TC campsite rules",
+        "info_document_campsite_tc": "Scout center rules of conduct",
         "info_document_campsite_laski": "Laški rovt campsite rules of conduct",
         "info_document_campsite_bohinj": "Rules of conduct in Bohinj",
         "info_document_other_heading": "Other documents and informations",
@@ -418,7 +425,8 @@ TEXTS = {
         "search": "Iskanje",
         "admin": "Admin",
         "prototype": "Lokalni prototip",
-        "information": "Informacije",
+        "information": "Lokacije",
+        "info_page_title": "Rezervacija skavtskih centrov",
         "period": "Termin",
         "type": "Tip",
         "booking": "Rezervacija",
@@ -640,10 +648,16 @@ TEXTS = {
         "info_eyebrow": "Pred izbiro termina",
         "info_title": "Pregled taborniških in skupinskih nastanitev.",
         "info_text": "Na tej prvi strani so zbrane osnovne informacije o lokacijah, praktične opombe ter prostor za dokumente in uporabne povezave pred nadaljevanjem na izbiro termina.",
-        "info_continue": "Nadaljuj na izbiro termina",
+        "info_continue": "Preveri razpoložljivost",
+        "info_card_choose_dates": "Preveri razpoložljivost",
+        "info_show_on_map": "Prikaži na zemljevidu",
+        "info_show_gallery": "Galerija fotografij",
+        "gallery_close": "Zapri",
+        "gallery_previous": "Prejšnja fotografija",
+        "gallery_next": "Naslednja fotografija",
         "info_map_heading": "Zemljevid lokacij",
         "info_map_text": "Povečajte ali pomanjšajte zemljevid in izberite oznako za ogled lokacije.",
-        "info_places_heading": "Pregled lokacij",
+        "info_places_heading": "Lokacije",
         "info_documents_heading": "Dokumenti in uporabne povezave",
         "info_document_rules": "Hišni red in navodila za taborjenje",
         "info_document_prices": "Cenik in informacije o izposoji",
@@ -3686,7 +3700,9 @@ def render_steps(active_step, lang):
         ("Summary", t(lang, "summary"), ""),
     ]
     pills = []
-    for step, label, href in steps:
+    for i, (step, label, href) in enumerate(steps):
+        if i > 0:
+            pills.append('<span class="step-arrow">→</span>')
         cls = "step-pill active" if step == active_step else "step-pill"
         if href:
             pills.append(f'<a class="{cls}" href="{html.escape(href)}">{html.escape(label)}</a>')
@@ -5212,6 +5228,11 @@ def render_layout(
     en_query = urlencode({"lang": "en", **current_params})
     sl_query = urlencode({"lang": "sl", **current_params})
     notice_html = f'<div class="notice">{html.escape(notice)}</div>' if notice else ""
+    stepper_html = ""
+    stepper_match = re.search(r'<div class="stepper">.*?</div>', content, re.DOTALL)
+    if stepper_match:
+        stepper_html = stepper_match.group(0)
+        content = content[:stepper_match.start()] + content[stepper_match.end():]
     try:
         style_version = int(STYLE_CSS_PATH.stat().st_mtime)
     except OSError:
@@ -5226,9 +5247,9 @@ def render_layout(
   {head_extra}
 </head>
 <body>
+  <div class="site-navigation">
   <header class="site-header">
     <div>
-      <p class="eyebrow">{html.escape(t(lang, "prototype"))}</p>
       <h1>{html.escape(title)}</h1>
     </div>
     <div class="header-right">
@@ -5236,13 +5257,11 @@ def render_layout(
         <a href="{current_path}?{en_query}" class="{'active' if lang == 'en' else ''}">{html.escape(t(lang, "language_en"))}</a>
         <a href="{current_path}?{sl_query}" class="{'active' if lang == 'sl' else ''}">{html.escape(t(lang, "language_sl"))}</a>
       </nav>
-      <nav>
-        <a href="/?lang={lang}">{html.escape(t(lang, "information"))}</a>
-        <a href="/period?lang={lang}">{html.escape(t(lang, "period"))}</a>
-        {f'<a href="/admin?lang={lang}">{html.escape(t(lang, "admin"))}</a><form method="post" action="/admin-logout" class="inline-form inline-form--header"><input type="hidden" name="lang" value="{lang}"><button type="submit">{html.escape(t(lang, "media_logout"))}</button></form>' if is_admin else ''}
-      </nav>
+      {f'<nav><a href="/admin?lang={lang}">{html.escape(t(lang, "admin"))}</a><form method="post" action="/admin-logout" class="inline-form inline-form--header"><input type="hidden" name="lang" value="{lang}"><button type="submit">{html.escape(t(lang, "media_logout"))}</button></form></nav>' if is_admin else ''}
     </div>
   </header>
+  {stepper_html}
+  </div>
   <main>
     {notice_html}
     {content}
@@ -5255,6 +5274,12 @@ def render_layout(
   </div>
   <script>
   (() => {{
+    const navigation = document.querySelector('.site-navigation');
+    const updateScrollPadding = () => {{
+      document.documentElement.style.scrollPaddingTop = `${{navigation.offsetHeight + 16}}px`;
+    }};
+    updateScrollPadding();
+    new ResizeObserver(updateScrollPadding).observe(navigation);
     const lightbox = document.querySelector('.image-lightbox');
     if (!lightbox) return;
     const image = lightbox.querySelector('img');
@@ -5328,6 +5353,82 @@ def render_layout(
         }} catch (error) {{}}
       }}
     }}
+    // Auto-compress images before upload to stay under Render's 1 MB nginx limit
+    document.querySelectorAll('.upload-form').forEach((form) => {{
+      const fileInput = form.querySelector('input[type="file"]');
+      if (!fileInput) return;
+      form.addEventListener('submit', async (event) => {{
+        event.preventDefault();
+        const files = Array.from(fileInput.files);
+        if (!files.length) return;
+        const MAX_SIZE = 950 * 1024; // 950 KB target to stay safely under 1 MB
+        const compressed = [];
+        for (const file of files) {{
+          if (file.size <= MAX_SIZE) {{
+            compressed.push(file);
+            continue;
+          }}
+          const jpegFile = await compressImage(file, MAX_SIZE);
+          compressed.push(jpegFile);
+        }}
+        const formData = new FormData(form);
+        formData.delete('image');
+        for (const cf of compressed) {{
+          formData.append('image', cf, cf.name);
+        }}
+        const response = await fetch(form.action, {{
+          method: 'POST',
+          body: formData,
+        }});
+        if (response.redirected || response.ok) {{
+          window.location.href = response.url || form.action;
+        }} else {{
+          window.location.href = form.action;
+        }}
+      }});
+    }});
+    function compressImage(file, maxSize) {{
+      return new Promise((resolve) => {{
+        const image = new Image();
+        image.onload = () => {{
+          const cleanup = () => {{ URL.revokeObjectURL(image.src); }};
+          let width = image.naturalWidth;
+          let height = image.naturalHeight;
+          const maxDimension = 1920;
+          if (width > maxDimension || height > maxDimension) {{
+            if (width >= height) {{
+              height = Math.round(height * maxDimension / width);
+              width = maxDimension;
+            }} else {{
+              width = Math.round(width * maxDimension / height);
+              height = maxDimension;
+            }}
+          }}
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(image, 0, 0, width, height);
+          let quality = 0.85;
+          const step = 0.1;
+          canvas.toBlob((blob) => {{
+            function check() {{
+              if (!blob || blob.size <= maxSize || quality <= 0.1) {{
+                const name = file.name.replace(/\\.[^.]+$/, '') + '.jpg';
+                const finalBlob = blob || file;
+                resolve(new File([finalBlob], name, {{ type: 'image/jpeg' }}));
+                return;
+              }}
+              quality -= step;
+              canvas.toBlob(check, 'image/jpeg', quality);
+            }}
+            canvas.toBlob(check, 'image/jpeg', quality);
+          }}, 'image/jpeg', quality);
+        }};
+        image.onerror = () => {{ resolve(file); }};
+        image.src = URL.createObjectURL(file);
+      }});
+    }}
   }})();
   </script>
   {body_extra}
@@ -5345,6 +5446,7 @@ INFO_MAP_LOCATIONS = [
     ("Taborni prostor Baredi", 45.517479, 13.683167, False),
     ("Taborni prostor Radlje ob Dravi", 46.602909, 15.220587, False),
 ]
+INFO_MAP_LOCATION_NAMES = {location_name for location_name, *_ in INFO_MAP_LOCATIONS}
 
 
 def render_info_map_section(lang, locations):
@@ -5352,6 +5454,7 @@ def render_info_map_section(lang, locations):
     locations_json = json.dumps(
         [
             {
+                "key": location_name,
                 "name": display_location_name(location_name, lang),
                 "summary": get_location_content(location_name, lang).get("summary", ""),
                 "highlights": get_location_content(location_name, lang).get("highlights", []),
@@ -5507,8 +5610,10 @@ def render_info_map_assets():
       `;
     };
     const bounds = [];
+    const markersByKey = {};
     locations.forEach((location) => {
       const marker = L.marker([location.lat, location.lng]).addTo(map);
+      markersByKey[location.key] = { marker, location };
       marker.bindTooltip(location.name, {
         direction: 'top',
         offset: [0, -10],
@@ -5533,10 +5638,97 @@ def render_info_map_assets():
 
     map.fitBounds(sloveniaBounds, { padding: [22, 22] });
     setTimeout(() => map.invalidateSize(), 80);
+
+    const pinFocusZoom = 18;
+    document.querySelectorAll('.info-place-pin').forEach((pin) => {
+      pin.addEventListener('click', () => {
+        const entry = markersByKey[pin.dataset.mapKey];
+        if (!entry) return;
+        mapElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        map.once('moveend', () => openLocationPopup(entry.marker, entry.location));
+        map.flyTo(entry.marker.getLatLng(), pinFocusZoom, { duration: 1.2 });
+      });
+    });
   })();
   </script>
 """
     return head_extra, body_extra
+
+
+def render_info_gallery_dialog(lang):
+    return f"""
+  <dialog class="gallery-dialog" id="info-gallery-dialog" aria-label="{html.escape(t(lang, "info_show_gallery"))}">
+    <div class="gallery-dialog-head">
+      <h3 class="gallery-dialog-title"></h3>
+      <span class="gallery-dialog-counter muted"></span>
+      <button type="button" class="gallery-dialog-close" aria-label="{html.escape(t(lang, "gallery_close"))}">&times;</button>
+    </div>
+    <div class="gallery-dialog-stage">
+      <button type="button" class="gallery-dialog-nav gallery-dialog-prev" aria-label="{html.escape(t(lang, "gallery_previous"))}">&lsaquo;</button>
+      <figure>
+        <img class="gallery-dialog-image" alt="">
+        <figcaption class="gallery-dialog-caption"></figcaption>
+      </figure>
+      <button type="button" class="gallery-dialog-nav gallery-dialog-next" aria-label="{html.escape(t(lang, "gallery_next"))}">&rsaquo;</button>
+    </div>
+    <div class="gallery-dialog-thumbs"></div>
+  </dialog>
+  <script>
+  (() => {{
+    const dialog = document.getElementById('info-gallery-dialog');
+    if (!dialog) return;
+    const image = dialog.querySelector('.gallery-dialog-image');
+    const caption = dialog.querySelector('.gallery-dialog-caption');
+    const title = dialog.querySelector('.gallery-dialog-title');
+    const counter = dialog.querySelector('.gallery-dialog-counter');
+    const thumbs = dialog.querySelector('.gallery-dialog-thumbs');
+    let items = [];
+    let index = 0;
+    const show = (nextIndex) => {{
+      index = (nextIndex + items.length) % items.length;
+      const item = items[index];
+      image.src = item.url;
+      image.alt = item.caption || title.textContent;
+      caption.textContent = item.caption || '';
+      counter.textContent = `${{index + 1}} / ${{items.length}}`;
+      Array.from(thumbs.children).forEach((thumb, thumbIndex) => {{
+        thumb.classList.toggle('active', thumbIndex === index);
+      }});
+      const activeThumb = thumbs.children[index];
+      if (activeThumb) activeThumb.scrollIntoView({{ block: 'nearest', inline: 'center' }});
+    }};
+    document.querySelectorAll('.info-place-gallery').forEach((button) => {{
+      button.addEventListener('click', () => {{
+        items = JSON.parse(button.dataset.gallery || '[]');
+        if (!items.length) return;
+        title.textContent = button.dataset.galleryTitle || '';
+        thumbs.innerHTML = '';
+        items.forEach((item, itemIndex) => {{
+          const thumb = document.createElement('img');
+          thumb.src = item.url;
+          thumb.alt = '';
+          thumb.loading = 'lazy';
+          thumb.addEventListener('click', () => show(itemIndex));
+          thumbs.appendChild(thumb);
+        }});
+        dialog.classList.toggle('gallery-dialog--single', items.length < 2);
+        dialog.showModal();
+        show(0);
+      }});
+    }});
+    dialog.querySelector('.gallery-dialog-close').addEventListener('click', () => dialog.close());
+    dialog.querySelector('.gallery-dialog-prev').addEventListener('click', () => show(index - 1));
+    dialog.querySelector('.gallery-dialog-next').addEventListener('click', () => show(index + 1));
+    dialog.addEventListener('click', (event) => {{
+      if (event.target === dialog) dialog.close();
+    }});
+    dialog.addEventListener('keydown', (event) => {{
+      if (event.key === 'ArrowLeft') show(index - 1);
+      if (event.key === 'ArrowRight') show(index + 1);
+    }});
+  }})();
+  </script>
+"""
 
 
 def render_information_page(connection, params):
@@ -5548,15 +5740,49 @@ def render_information_page(connection, params):
         content = get_location_content(location["name"], lang)
         highlights = "".join(f"<li>{html.escape(item)}</li>" for item in content.get("highlights", []))
         period_href = f"/period?lang={lang}&location_id={location['id']}#location-{location['id']}"
+        map_pin_html = (
+            f'<button type="button" class="info-place-pin" data-map-key="{html.escape(location["name"])}" '
+            f'title="{html.escape(t(lang, "info_show_on_map"))}" aria-label="{html.escape(t(lang, "info_show_on_map"))}">'
+            '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>'
+            "</button>"
+            if location["name"] in INFO_MAP_LOCATION_NAMES
+            else ""
+        )
+        gallery_items = [
+            {"url": image["url"], "caption": image.get("caption", "")}
+            for image in get_location_gallery(location["name"])
+            if image.get("filename")
+        ]
+        for unit in location["units"]:
+            gallery_items.extend(
+                {"url": image["url"], "caption": image.get("caption", "") or unit["name"]}
+                for image in get_unit_gallery(location["name"], unit["name"])
+            )
+        gallery_button_html = (
+            f'<button type="button" class="info-place-pin info-place-gallery" '
+            f'data-gallery-title="{html.escape(display_location_name(location["name"], lang))}" '
+            f'data-gallery="{html.escape(json.dumps(gallery_items, ensure_ascii=False), quote=True)}" '
+            f'title="{html.escape(t(lang, "info_show_gallery"))}" aria-label="{html.escape(t(lang, "info_show_gallery"))}">'
+            '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M21 5H3a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1zm-1 12H4l4.5-6 3.5 4.5 2.5-3L20 17zM16.5 10a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg>'
+            "</button>"
+            if gallery_items
+            else ""
+        )
         place_cards.append(
             f"""
-            <a class="info-place-card" href="{html.escape(period_href)}" style="color: inherit; text-decoration: none;">
-              <h3>{html.escape(display_location_name(location["name"], lang))}</h3>
+            <article class="info-place-card">
+              <div class="info-place-card-head">
+                <h3>{html.escape(display_location_name(location["name"], lang))}</h3>
+                <div class="info-place-actions">
+                  {gallery_button_html}
+                  {map_pin_html}
+                </div>
+              </div>
               <p>{html.escape(content.get("summary", ""))}</p>
               <ul>{highlights}</ul>
               <p class="muted"><strong>{html.escape(t(lang, "location_season_label"))}:</strong> {html.escape(content.get("season", ""))}</p>
-              <span class="button">{html.escape(t(lang, "info_continue"))}</span>
-            </a>
+              <a class="button" href="{html.escape(period_href)}">{html.escape(t(lang, "info_card_choose_dates"))}</a>
+            </article>
             """
         )
     content = f"""
@@ -5565,27 +5791,18 @@ def render_information_page(connection, params):
       <p class="eyebrow">{html.escape(t(lang, "info_eyebrow"))}</p>
       <h2>{html.escape(t(lang, "info_title"))}</h2>
       <p>{html.escape(t(lang, "info_text"))}</p>
-      <p><a class="button" href="/period?lang={lang}">{html.escape(t(lang, "info_continue"))}</a></p>
     </section>
-    {render_info_map_section(lang, locations)}
     <section class="panel">
       <h2>{html.escape(t(lang, "info_places_heading"))}</h2>
       <div class="info-place-grid">
         {''.join(place_cards)}
       </div>
     </section>
+    {render_info_map_section(lang, locations)}
     <section class="panel info-documents">
       <h2>{html.escape(t(lang, "info_documents_heading"))}</h2>
       <div class="info-document-group">
-        <h3>{html.escape(t(lang, "info_document_nature_heading"))}</h3>
-        <div class="info-document-grid">
-          <a href="/static/documents/zts-visiting-nature-in-slovenia.pdf" target="_blank" rel="noopener">{html.escape(t(lang, "info_document_nature_zts"))}</a>
-          <a href="/static/documents/pzs-summer-mountaineering-safety-tips-eng.pdf" target="_blank" rel="noopener">{html.escape(t(lang, "info_document_nature_pzs"))}</a>
-          <a href="/static/documents/triglav-national-park-map.pdf" target="_blank" rel="noopener">{html.escape(t(lang, "info_document_nature_tnp"))}</a>
-        </div>
-      </div>
-      <div class="info-document-group">
-        <h3>{html.escape(t(lang, "info_document_campsite_heading"))}</h3>
+        <h3>1. {html.escape(t(lang, "info_document_campsite_heading"))}</h3>
         <div class="info-document-grid">
           <a href="/static/documents/rules-tc-en-2024.pdf" target="_blank" rel="noopener">{html.escape(t(lang, "info_document_campsite_tc"))}</a>
           <a href="/static/documents/laski-rovt-campsite-rules-of-conduct.pdf" target="_blank" rel="noopener">{html.escape(t(lang, "info_document_campsite_laski"))}</a>
@@ -5593,7 +5810,15 @@ def render_information_page(connection, params):
         </div>
       </div>
       <div class="info-document-group">
-        <h3>{html.escape(t(lang, "info_document_other_heading"))}</h3>
+        <h3>2. {html.escape(t(lang, "info_document_nature_heading"))}</h3>
+        <div class="info-document-grid">
+          <a href="/static/documents/zts-visiting-nature-in-slovenia.pdf" target="_blank" rel="noopener">{html.escape(t(lang, "info_document_nature_zts"))}</a>
+          <a href="/static/documents/pzs-summer-mountaineering-safety-tips-eng.pdf" target="_blank" rel="noopener">{html.escape(t(lang, "info_document_nature_pzs"))}</a>
+          <a href="/static/documents/triglav-national-park-map.pdf" target="_blank" rel="noopener">{html.escape(t(lang, "info_document_nature_tnp"))}</a>
+        </div>
+      </div>
+      <div class="info-document-group">
+        <h3>3. {html.escape(t(lang, "info_document_other_heading"))}</h3>
         <div class="info-document-grid info-document-grid--other">
           <a href="mailto:tc.bohinj@taborniki.si" onclick="alert('{html.escape(t(lang, "info_document_contact_notice"), quote=True)}')">{html.escape(t(lang, "info_document_contact"))}</a>
           <a href="/static/documents/ld-izola-program-ang.pdf" target="_blank" rel="noopener">{html.escape(t(lang, "info_document_other_izola"))}</a>
@@ -5607,14 +5832,14 @@ def render_information_page(connection, params):
     """
     map_head_extra, map_body_extra = render_info_map_assets()
     return render_layout(
-        t(lang, "information"),
+        t(lang, "info_page_title"),
         content,
         notice=notice,
         lang=lang,
         current_path="/",
         current_params=params,
         head_extra=map_head_extra,
-        body_extra=map_body_extra,
+        body_extra=map_body_extra + render_info_gallery_dialog(lang),
     )
 
 
@@ -6624,7 +6849,7 @@ def render_search_page(connection, params, errors=None):
     script = script.replace("%TOO_MANY_GUESTS_LOCATION%", json.dumps(t(lang, "too_many_guests_location")))
     script = script.replace("%TOO_MANY_GUESTS_AVAILABLE%", json.dumps(t(lang, "too_many_guests_available")))
     script = script.replace("%LOCALE%", "'" + ("sl-SI" if lang == "sl" else "en-GB") + "'")
-    return render_layout(t(lang, "app_title"), intro + "".join(cards) + script, notice=notice, lang=lang, current_path="/period", current_params=params, is_admin=admin_mode)
+    return render_layout(t(lang, "app_title"), intro + f'<div class="location-grid">{"".join(cards)}</div>' + script, notice=notice, lang=lang, current_path="/period", current_params=params, is_admin=admin_mode)
 
 
 def render_booking_page(connection, params, errors=None):
