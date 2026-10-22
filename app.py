@@ -156,6 +156,8 @@ TEXTS = {
         "selected_unit_capacity": "The selected subcamp cannot accept this many guests. Choose another option or reduce the guest count.",
         "availability_by_unit": "Availability by unit",
         "no_reservations": "No reservations in this period.",
+        "seasonally_closed": "Not open — seasonal closure",
+        "seasonal_closure_legend": "Seasonally closed: 15 September–14 May. Reopens on 15 May.",
         "calendar_weekdays": "Mo Tu We Th Fr Sa Su",
         "calendar_months": "January|February|March|April|May|June|July|August|September|October|November|December",
         "places_left": "{count} places left",
@@ -456,6 +458,8 @@ TEXTS = {
         "selected_unit_capacity": "Izbrani podtabor ne more sprejeti toliko gostov. Izberite drugo možnost ali zmanjšajte število gostov.",
         "availability_by_unit": "Razpoložljivost po enotah",
         "no_reservations": "V tem obdobju ni rezervacij.",
+        "seasonally_closed": "Zaprto — sezonsko zaprtje",
+        "seasonal_closure_legend": "Sezonsko zaprto: od 15. septembra do 14. maja. Ponovno odprto 15. maja.",
         "calendar_weekdays": "Po To Sr Če Pe So Ne",
         "calendar_months": "januar|februar|marec|april|maj|junij|julij|avgust|september|oktober|november|december",
         "places_left": "Še {count} prostih mest",
@@ -3409,12 +3413,11 @@ def render_booking_board(locations, bookings, board_start, board_end, lang="en",
         if compact else ""
     )
     scroll_style = 'width:100%; max-width:100%;' if compact else ""
+    board_dates = list(daterange(board_start, board_end))
     month_cells = []
-    day_cells = []
     current_month_label = None
     current_month_count = 0
-    for offset in range(range_days):
-        current = board_start + timedelta(days=offset)
+    for current in board_dates:
         month_label = f"{t(lang, 'calendar_months').split('|')[current.month - 1]} {current.year}"
         if current_month_label is None:
             current_month_label = month_label
@@ -3427,12 +3430,6 @@ def render_booking_board(locations, bookings, board_start, board_end, lang="en",
             )
             current_month_label = month_label
             current_month_count = 1
-        classes = ["board-day"]
-        if current.weekday() >= 5:
-            classes.append("is-weekend")
-        day_cells.append(
-            f'<div class="{" ".join(classes)}"><span>{current.day}</span></div>'
-        )
     if current_month_label is not None:
         month_cells.append(
             f'<div class="board-month" style="grid-column: span {current_month_count};">{html.escape(current_month_label)}</div>'
@@ -3458,6 +3455,39 @@ def render_booking_board(locations, bookings, board_start, board_end, lang="en",
 
     location_sections = []
     for location in locations:
+        closed_dates = {
+            current for current in board_dates
+            if is_laski_location(location["name"])
+            and not is_location_date_range_allowed(location["name"], current, current + timedelta(days=1))
+        }
+        closed_periods = []
+        day_cells = []
+        grid_cells = []
+        for current in board_dates:
+            classes = ["board-day"]
+            if current.weekday() >= 5:
+                classes.append("is-weekend")
+            if current in closed_dates:
+                classes.append("is-seasonally-closed")
+                if closed_periods and closed_periods[-1][1] == current and current.day != 1:
+                    closed_periods[-1] = (closed_periods[-1][0], current + timedelta(days=1))
+                else:
+                    closed_periods.append((current, current + timedelta(days=1)))
+            title = f' title="{current.isoformat()}: {html.escape(t(lang, "seasonally_closed"))}"' if current in closed_dates else ""
+            day_cells.append(f'<div class="{" ".join(classes)}" data-date="{current.isoformat()}"{title}><span>{current.day}</span></div>')
+            grid_cells.append(f'<span class="booking-board-cell{" is-seasonally-closed" if current in closed_dates else ""}" data-date="{current.isoformat()}"{title}></span>')
+        closure_bands = []
+        for closed_start, closed_end in closed_periods:
+            left = ((closed_start - board_start).days / range_days) * 100
+            width = ((closed_end - closed_start).days / range_days) * 100
+            label = t(lang, "seasonally_closed")
+            title = f"{label}: {closed_start.isoformat()} – {(closed_end - timedelta(days=1)).isoformat()}"
+            closure_bands.append(f'''
+              <div class="booking-board-closure" data-start="{closed_start.isoformat()}" data-end="{closed_end.isoformat()}" style="left:{left:.4f}%; width:{width:.4f}%;" title="{html.escape(title)}" role="img" aria-label="{html.escape(title)}">
+                <span>{html.escape(label)}</span>
+              </div>
+            ''')
+        closure_legend = f'<p class="board-closure-legend"><span class="board-closure-swatch" aria-hidden="true"></span>{html.escape(t(lang, "seasonal_closure_legend"))}</p>' if is_laski_location(location["name"]) else ""
         unit_rows = []
         for unit in location["units"]:
             relevant_bookings = []
@@ -3507,9 +3537,10 @@ def render_booking_board(locations, bookings, board_start, board_end, lang="en",
                   </div>
                   <div class="booking-board-track" style="min-height:{(track_count * 1.45) + 0.6:.2f}rem; width:{canvas_min_width}px;">
                     <div class="booking-board-grid" style="{column_style}">
-                      {''.join('<span class="booking-board-cell"></span>' for _ in range(range_days))}
+                      {''.join(grid_cells)}
                     </div>
-                    {''.join(bars) if bars else f'<p class="booking-board-empty">{html.escape(empty_text)}</p>'}
+                    {''.join(closure_bands)}
+                    {''.join(bars) if bars else (f'<p class="booking-board-empty">{html.escape(empty_text)}</p>' if not closure_bands else '')}
                   </div>
                 </div>
                 '''
@@ -3521,6 +3552,7 @@ def render_booking_board(locations, bookings, board_start, board_end, lang="en",
                 <h2>{html.escape(display_location_name(location["name"], lang))}</h2>
                 <p>{html.escape(heading_suffix)}</p>
               </div>
+              {closure_legend}
               <div class="booking-board-scroll{' booking-board-scroll--compact' if compact else ''}" data-today-offset="{today_offset}" data-range-days="{range_days}" style="{scroll_style}">
                 <div class="booking-board-canvas{' booking-board-canvas--compact' if compact else ''}" style="min-width:{canvas_min_width}px; width:{canvas_min_width}px;">
                   <div class="booking-board-header" style="{timeline_layout_style}">

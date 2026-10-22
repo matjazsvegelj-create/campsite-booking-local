@@ -2021,6 +2021,45 @@ td {
   background: rgba(47, 106, 70, 0.08);
 }
 
+.board-day.is-seasonally-closed {
+  background: #d8d2c8;
+  color: #625b52;
+}
+
+.board-closure-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.board-closure-swatch,
+.booking-board-closure {
+  background: repeating-linear-gradient(135deg, #e4dfd6 0, #e4dfd6 6px, #d8d2c8 6px, #d8d2c8 9px);
+}
+
+.board-closure-swatch {
+  flex: 0 0 1.4rem;
+  height: 1rem;
+  border: 1px solid #b7aea1;
+  border-radius: 3px;
+}
+
+.booking-board-closure {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  padding: 0 0.4rem;
+  border-right: 1px solid #b7aea1;
+  color: #514a41;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
 .board-day span,
 .board-day small {
   display: block;
