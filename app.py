@@ -54,12 +54,12 @@ LOCATION_CONTENT = {
     "Laski rovt ZTS": {
         "en": {
             "summary": "A large summer campsite in Bohinj with three subcamps for scout groups that want flexible layouts and fast access to the lake area.",
-            "highlights": ["Up to 125 guests together across 3 subcamps. If your group has that many guests, you must reserve each subcamp separately to reach the desired number of reservations.", "Summer season location", "Best for larger group camps"],
+            "highlights": ["Up to 125 guests across 3 subcamps. Choose a subcamp, or reserve the whole site for groups of more than 90 guests.", "Summer season location", "Best for larger group camps"],
             "season": "Open from 15 May to 15 September",
         },
         "sl": {
             "summary": "Velik poletni taborni prostor v Bohinju s tremi podtabori za skupine, ki potrebujejo prilagodljivo razporeditev in hiter dostop do jezerskega območja.",
-            "highlights": ["Do 125 gostov skupaj v 3 podtaborih. Če je vaša skupina tako velika, morate vsak podtabor rezervirati posebej, da dosežete želeno število rezervacij.", "Lokacija za poletno sezono", "Primerno za večje tabore"],
+            "highlights": ["Do 125 gostov v 3 podtaborih. Izberite podtabor ali za skupine z več kot 90 gosti rezervirajte celoten taborni prostor.", "Lokacija za poletno sezono", "Primerno za večje tabore"],
             "season": "Odprto od 15. maja do 15. septembra",
         },
     },
@@ -147,6 +147,17 @@ TEXTS = {
         "overview": "Overview",
         "calendar_previous_month": "Previous month",
         "calendar_next_month": "Next month",
+        "choose_subcamp": "Choose your subcamp",
+        "choose_subcamp_first": "Choose a subcamp first, then select your dates.",
+        "whole_site": "Whole site (Subcamps 1, 2 and 3)",
+        "whole_site_help": "Groups of more than 90 guests can reserve the whole site, up to 125 guests. All three subcamps must be available.",
+        "whole_site_minimum": "The whole-site option is available for groups of more than 90 guests.",
+        "selected_unit_capacity": "The selected subcamp cannot accept this many guests. Choose another option or reduce the guest count.",
+        "availability_by_unit": "Availability by unit",
+        "no_reservations": "No reservations in this period.",
+        "calendar_weekdays": "Mo Tu We Th Fr Sa Su",
+        "calendar_months": "January|February|March|April|May|June|July|August|September|October|November|December",
+        "places_left": "{count} places left",
         "period": "Period",
         "type": "Type",
         "booking": "Booking",
@@ -435,6 +446,17 @@ TEXTS = {
         "overview": "Pregled",
         "calendar_previous_month": "Prejšnji mesec",
         "calendar_next_month": "Naslednji mesec",
+        "choose_subcamp": "Izberite podtabor",
+        "choose_subcamp_first": "Najprej izberite podtabor, nato izberite termin.",
+        "whole_site": "Celoten taborni prostor (podtabori 1, 2 in 3)",
+        "whole_site_help": "Skupine z več kot 90 gosti lahko rezervirajo celoten taborni prostor za največ 125 gostov. Vsi trije podtabori morajo biti prosti.",
+        "whole_site_minimum": "Celoten taborni prostor lahko rezervirajo skupine z več kot 90 gosti.",
+        "selected_unit_capacity": "Izbrani podtabor ne more sprejeti toliko gostov. Izberite drugo možnost ali zmanjšajte število gostov.",
+        "availability_by_unit": "Razpoložljivost po enotah",
+        "no_reservations": "V tem obdobju ni rezervacij.",
+        "calendar_weekdays": "Po To Sr Če Pe So Ne",
+        "calendar_months": "januar|februar|marec|april|maj|junij|julij|avgust|september|oktober|november|december",
+        "places_left": "Še {count} prostih mest",
         "period": "Termin",
         "type": "Tip",
         "booking": "Rezervacija",
@@ -1354,6 +1376,7 @@ def should_keep_reset_param(step_name, key):
             "lang",
             "admin_mode",
             "location_id",
+            "unit_id",
             "check_in",
             "check_out",
             "guest_count",
@@ -2251,6 +2274,8 @@ def display_location_name(name, lang):
 
 
 def display_unit_name(name, lang):
+    if name == "Whole site":
+        return t(lang, "whole_site")
     if name.startswith("Subcamp "):
         return f"{t(lang, 'subcamp')} {name.split(' ', 1)[1]}"
     return name
@@ -2536,24 +2561,33 @@ def sync_seed_data(connection):
             )
         }
         active_unit_ids = []
-        for unit in location["units"]:
+        seeded_units = list(location["units"])
+        if location["name"] == "Laski rovt ZTS":
+            seeded_units.append({
+                "name": "Whole site",
+                "max_guests": sum(unit["max_guests"] for unit in location["units"]),
+                "price": location["units"][0]["price"],
+                "display_order": 4,
+                "is_whole_site": 1,
+            })
+        for unit in seeded_units:
             existing_unit = existing_units.get(unit["display_order"])
             if existing_unit:
                 connection.execute(
                     """
                     update bookable_units
-                    set name = ?, max_guests = ?, price_per_guest_per_night = ?, is_active = 1
+                    set name = ?, max_guests = ?, price_per_guest_per_night = ?, is_whole_site = ?, is_active = 1
                     where id = ?
                     """,
-                    (unit["name"], unit["max_guests"], unit["price"], existing_unit["id"]),
+                    (unit["name"], unit["max_guests"], unit["price"], unit.get("is_whole_site", 0), existing_unit["id"]),
                 )
                 unit_id = existing_unit["id"]
             else:
                 cursor = connection.execute(
                     """
                     insert into bookable_units (
-                        location_id, name, max_guests, price_per_guest_per_night, is_active, display_order
-                    ) values (?, ?, ?, ?, 1, ?)
+                        location_id, name, max_guests, price_per_guest_per_night, is_active, display_order, is_whole_site
+                    ) values (?, ?, ?, ?, 1, ?, ?)
                     """,
                     (
                         location_id,
@@ -2561,6 +2595,7 @@ def sync_seed_data(connection):
                         unit["max_guests"],
                         unit["price"],
                         unit["display_order"],
+                        unit.get("is_whole_site", 0),
                     ),
                 )
                 unit_id = cursor.lastrowid
@@ -2608,6 +2643,7 @@ def init_db():
                 location_id integer not null references locations(id) on delete cascade,
                 name text not null,
                 max_guests integer not null check (max_guests > 0),
+                is_whole_site integer not null default 0,
                 price_per_guest_per_night numeric not null check (price_per_guest_per_night >= 0),
                 is_active integer not null default 1,
                 display_order integer not null default 0,
@@ -2669,6 +2705,9 @@ def init_db():
                 on booking_rentals(item_key);
             """
         )
+        unit_columns = {row["name"] for row in connection.execute("pragma table_info(bookable_units)")}
+        if "is_whole_site" not in unit_columns:
+            connection.execute("alter table bookable_units add column is_whole_site integer not null default 0")
         rental_columns = {
             row["name"]
             for row in connection.execute("pragma table_info(booking_rentals)")
@@ -2796,6 +2835,7 @@ def get_unit(connection, unit_id):
             bu.location_id,
             bu.name as unit_name,
             bu.max_guests,
+            bu.is_whole_site,
             bu.price_per_guest_per_night,
             l.name as location_name,
             l.type as location_type
@@ -2809,24 +2849,29 @@ def get_unit(connection, unit_id):
 
 def get_reserved_guests_by_day(connection, unit_id, check_in, check_out, exclude_booking_id=None):
     reservations = {}
+    unit = get_unit(connection, unit_id)
+    if not unit:
+        return reservations
     sql = """
-        select check_in, check_out, guest_count
-        from bookings
-        where bookable_unit_id = ?
-          and status in ('pending', 'change_requested', 'confirmed', 'fee_paid', 'cancel_requested')
+        select booking.check_in, booking.check_out, booking.guest_count, reserved_unit.is_whole_site
+        from bookings booking
+        join bookable_units reserved_unit on reserved_unit.id = booking.bookable_unit_id
+        where (booking.bookable_unit_id = ? or (reserved_unit.location_id = ? and (reserved_unit.is_whole_site = 1 or ? = 1)))
+          and booking.status in ('pending', 'change_requested', 'confirmed', 'fee_paid', 'cancel_requested')
           and check_in < ?
           and check_out > ?
     """
-    params = [unit_id, check_out.isoformat(), check_in.isoformat()]
+    params = [unit_id, unit["location_id"], unit["is_whole_site"], check_out.isoformat(), check_in.isoformat()]
     if exclude_booking_id is not None:
-        sql += " and id != ?"
+        sql += " and booking.id != ?"
         params.append(exclude_booking_id)
 
     for row in connection.execute(sql, params):
         row_start = parse_date(row["check_in"])
         row_end = parse_date(row["check_out"])
         for stay_date in daterange(max(check_in, row_start), min(check_out, row_end)):
-            reservations[stay_date] = reservations.get(stay_date, 0) + row["guest_count"]
+            reserved = unit["max_guests"] if unit["is_whole_site"] or row["is_whole_site"] else row["guest_count"]
+            reservations[stay_date] = reservations.get(stay_date, 0) + reserved
     return reservations
 
 
@@ -2839,6 +2884,8 @@ def capacity_check(connection, unit_id, check_in, check_out, guest_count, exclud
         connection, unit_id, check_in, check_out, exclude_booking_id=exclude_booking_id
     )
     violations = []
+    if unit["is_whole_site"] and guest_count <= 90:
+        violations.append(t("en", "whole_site_minimum"))
     nightly = []
     for stay_date in daterange(check_in, check_out):
         reserved = reservations.get(stay_date, 0)
@@ -2859,7 +2906,7 @@ def capacity_check(connection, unit_id, check_in, check_out, guest_count, exclud
     return {"unit": unit, "nightly": nightly}, violations
 
 
-def get_location_availability_summary(connection, location_id, check_in, check_out):
+def get_location_availability_summary(connection, location_id, check_in, check_out, unit_id=None):
     location = None
     for item in fetch_locations(connection):
         if str(item["id"]) == str(location_id):
@@ -2870,7 +2917,12 @@ def get_location_availability_summary(connection, location_id, check_in, check_o
 
     unit_summaries = []
     remaining_capacity = 0
-    for unit in location["units"]:
+    units = location["units"]
+    if unit_id:
+        units = [unit for unit in units + ([location["whole_site_unit"]] if location["whole_site_unit"] else []) if str(unit["id"]) == str(unit_id)]
+        if not units:
+            return None
+    for unit in units:
         reservations = get_reserved_guests_by_day(connection, unit["id"], check_in, check_out)
         min_available = unit["max_guests"]
         for stay_date in daterange(check_in, check_out):
@@ -2885,6 +2937,10 @@ def get_location_availability_summary(connection, location_id, check_in, check_o
                 "max_guests": unit["max_guests"],
             }
         )
+    if not is_location_date_range_allowed(location["name"], check_in, check_out):
+        remaining_capacity = 0
+        for summary in unit_summaries:
+            summary["remaining_capacity"] = 0
     return {
         "location_id": int(location["id"]),
         "location_name": location["name"],
@@ -2893,7 +2949,7 @@ def get_location_availability_summary(connection, location_id, check_in, check_o
     }
 
 
-def get_location_daily_availability(connection, location_id, start_date, end_date):
+def get_location_daily_availability(connection, location_id, start_date, end_date, unit_id=None):
     location = None
     for item in fetch_locations(connection):
         if str(item["id"]) == str(location_id):
@@ -2902,17 +2958,24 @@ def get_location_daily_availability(connection, location_id, start_date, end_dat
     if not location:
         return None
 
-    total_capacity = sum(unit["max_guests"] for unit in location["units"])
+    units = location["units"]
+    if unit_id:
+        units = [unit for unit in units + ([location["whole_site_unit"]] if location["whole_site_unit"] else []) if str(unit["id"]) == str(unit_id)]
+        if not units:
+            return None
+    total_capacity = sum(unit["max_guests"] for unit in units)
     reservations_by_unit = {
         unit["id"]: get_reserved_guests_by_day(connection, unit["id"], start_date, end_date)
-        for unit in location["units"]
+        for unit in units
     }
     days = []
     for current_date in daterange(start_date, end_date):
         remaining = 0
-        for unit in location["units"]:
+        for unit in units:
             reserved = reservations_by_unit[unit["id"]].get(current_date, 0)
             remaining += max(0, unit["max_guests"] - reserved)
+        if not is_location_date_range_allowed(location["name"], current_date, current_date + timedelta(days=1)):
+            remaining = 0
         days.append(
             {
                 "date": current_date.isoformat(),
@@ -2942,7 +3005,8 @@ def fetch_locations(connection):
             bu.name as unit_name,
             bu.max_guests,
             bu.price_per_guest_per_night,
-            bu.display_order as unit_display_order
+            bu.display_order as unit_display_order,
+            bu.is_whole_site
         from locations l
         join bookable_units bu on bu.location_id = l.id
         where l.is_active = 1 and bu.is_active = 1
@@ -2958,16 +3022,20 @@ def fetch_locations(connection):
                 "name": row["location_name"],
                 "type": row["location_type"],
                 "units": [],
+                "whole_site_unit": None,
             }
             grouped.append(current)
-        current["units"].append(
-            {
-                "id": row["unit_id"],
-                "name": row["unit_name"],
-                "max_guests": row["max_guests"],
-                "price_per_guest_per_night": money(row["price_per_guest_per_night"]),
-            }
-        )
+        unit = {
+            "id": row["unit_id"],
+            "name": row["unit_name"],
+            "max_guests": row["max_guests"],
+            "price_per_guest_per_night": money(row["price_per_guest_per_night"]),
+            "is_whole_site": row["is_whole_site"],
+        }
+        if row["is_whole_site"]:
+            current["whole_site_unit"] = unit
+        else:
+            current["units"].append(unit)
     return grouped
 
 
@@ -2977,6 +3045,7 @@ def fetch_bookings(connection):
         select
             b.*,
             bu.name as unit_name,
+            bu.is_whole_site,
             l.name as location_name
         from bookings b
         join bookable_units bu on bu.id = b.bookable_unit_id
@@ -3330,19 +3399,18 @@ def render_booking_board(locations, bookings, board_start, board_end, lang="en",
     column_style = f"grid-template-columns: repeat({range_days}, minmax(0, 1fr));"
     canvas_min_width = max(1200, range_days * 22) if not compact else max(2800, range_days * 15)
     label_column_width = 110 if compact else 180
-    viewport_width = 980 if compact else None
     timeline_layout_style = (
         f'grid-template-columns: {label_column_width}px {canvas_min_width}px; width:{label_column_width + canvas_min_width}px;'
         if compact else ""
     )
-    scroll_style = f'width:{viewport_width}px; max-width:{viewport_width}px;' if compact else ""
+    scroll_style = 'width:100%; max-width:100%;' if compact else ""
     month_cells = []
     day_cells = []
     current_month_label = None
     current_month_count = 0
     for offset in range(range_days):
         current = board_start + timedelta(days=offset)
-        month_label = current.strftime("%B %Y")
+        month_label = f"{t(lang, 'calendar_months').split('|')[current.month - 1]} {current.year}"
         if current_month_label is None:
             current_month_label = month_label
             current_month_count = 1
@@ -3366,6 +3434,7 @@ def render_booking_board(locations, bookings, board_start, board_end, lang="en",
         )
 
     bookings_by_unit = {}
+    whole_site_bookings = {}
     for booking in bookings:
         normalized = {
             "id": booking["id"],
@@ -3377,14 +3446,17 @@ def render_booking_board(locations, bookings, board_start, board_end, lang="en",
             "unit_id": booking["bookable_unit_id"],
             "location_name": booking["location_name"],
         }
-        bookings_by_unit.setdefault(booking["bookable_unit_id"], []).append(normalized)
+        if booking["is_whole_site"]:
+            whole_site_bookings.setdefault(booking["location_name"], []).append(normalized)
+        else:
+            bookings_by_unit.setdefault(booking["bookable_unit_id"], []).append(normalized)
 
     location_sections = []
     for location in locations:
         unit_rows = []
         for unit in location["units"]:
             relevant_bookings = []
-            for booking in bookings_by_unit.get(unit["id"], []):
+            for booking in bookings_by_unit.get(unit["id"], []) + whole_site_bookings.get(location["name"], []):
                 if booking["check_in"] < board_end and booking["check_out"] > board_start:
                     relevant_bookings.append(booking)
             assigned, track_count = assign_booking_tracks_by_status(relevant_bookings)
@@ -3400,7 +3472,7 @@ def render_booking_board(locations, bookings, board_start, board_end, lang="en",
                 bar_label = (
                     f"<strong>{html.escape(booking['guest_name'])}</strong><span>{booking['guest_count']} {html.escape(t(lang, 'guests_word'))}</span>"
                     if show_guest_names
-                    else f"<strong>{html.escape(booking_status_label(booking['status']).upper())}</strong><span>{booking['guest_count']}</span>"
+                    else f"<strong>{html.escape(booking_status_label(booking['status'], lang).upper())}</strong><span>{booking['guest_count']}</span>"
                 )
                 if show_guest_names:
                     bars.append(
@@ -3425,7 +3497,7 @@ def render_booking_board(locations, bookings, board_start, board_end, lang="en",
                 f'''
                 <div class="booking-board-row" style="{timeline_layout_style}">
                   <div class="booking-board-label">
-                    <strong>{html.escape(unit["name"])}</strong>
+                    <strong>{html.escape(display_unit_name(unit["name"], lang))}</strong>
                     <span>{html.escape(tf(lang, "admin_guests_max", count=unit["max_guests"]))}</span>
                   </div>
                   <div class="booking-board-track" style="min-height:{(track_count * 1.45) + 0.6:.2f}rem; width:{canvas_min_width}px;">
@@ -3441,7 +3513,7 @@ def render_booking_board(locations, bookings, board_start, board_end, lang="en",
             f'''
             <section class="panel {css_class}">
               <div class="location-heading">
-                <h2>{html.escape(location["name"])}</h2>
+                <h2>{html.escape(display_location_name(location["name"], lang))}</h2>
                 <p>{html.escape(heading_suffix)}</p>
               </div>
               <div class="booking-board-scroll{' booking-board-scroll--compact' if compact else ''}" data-today-offset="{today_offset}" data-range-days="{range_days}" style="{scroll_style}">
@@ -3749,6 +3821,7 @@ def render_type_page(connection, params, errors=None):
     errors = errors or []
     lang = get_lang(first_param(params, "lang", "en"))
     location_id = int(first_param(params, "location_id", "0") or "0")
+    selected_unit_id = first_param(params, "unit_id", "")
     if not location_id:
         unit_id = int(first_param(params, "unit_id", "0") or "0")
         if unit_id:
@@ -3796,7 +3869,10 @@ def render_type_page(connection, params, errors=None):
     laski_flow = is_laski_location(location["name"])
     selected_boarding_option = None
     available_units = []
-    for unit in location["units"]:
+    booking_units = location["units"] + ([location["whole_site_unit"]] if location["whole_site_unit"] and requested_guest_count > 90 else [])
+    for unit in booking_units:
+        if selected_unit_id and str(unit["id"]) != selected_unit_id:
+            continue
         details, violations = capacity_check(
             connection,
             unit["id"],
@@ -3845,6 +3921,7 @@ def render_type_page(connection, params, errors=None):
           </div>
           <form method="get" action="/type" class="type-layout">
             <input type="hidden" name="location_id" value="{location_id}">
+            <input type="hidden" name="unit_id" value="{html.escape(selected_unit_id)}">
             <input type="hidden" name="lang" value="{lang}">
             <input type="hidden" name="check_in" value="{html.escape(check_in)}">
             <input type="hidden" name="check_out" value="{html.escape(check_out)}">
@@ -3991,6 +4068,7 @@ def render_type_page(connection, params, errors=None):
             <input type="hidden" name="location_id" value="{location_id}">
             <input type="hidden" name="lang" value="{lang}">
             <input type="hidden" name="check_in" value="{html.escape(check_in)}">
+            <input type="hidden" name="unit_id" value="{html.escape(selected_unit_id)}">
             <input type="hidden" name="check_out" value="{html.escape(check_out)}">
             <input type="hidden" name="guest_count" value="{html.escape(guest_count)}">
             <input type="hidden" name="origin_country" value="{html.escape(origin_country)}">
@@ -5863,6 +5941,7 @@ def render_search_page(connection, params, errors=None):
     selected_guest_count = first_param(params, "guest_count", "2")
     selected_origin_country = first_param(params, "origin_country", "")
     selected_member_category = first_param(params, "member_category", "")
+    selected_unit_id = first_param(params, "unit_id", "")
     preferred_arrival_slot = params.get("preferred_arrival_slot", "")
     preferred_arrival_note = params.get("preferred_arrival_note", "")
     preferred_departure_slot = params.get("preferred_departure_slot", "")
@@ -5911,10 +5990,11 @@ def render_search_page(connection, params, errors=None):
             bookings,
             public_board_start,
             public_board_end,
+            lang=lang,
             show_guest_names=False,
-            heading_suffix="Availability by unit",
+            heading_suffix=t(lang, "availability_by_unit"),
             css_class="public-board-section",
-            empty_text="No reservations in this period.",
+            empty_text=t(lang, "no_reservations"),
             compact=True,
         )
         is_selected_location = str(location["id"]) == str(selected_location_id)
@@ -5923,6 +6003,7 @@ def render_search_page(connection, params, errors=None):
         card_guest_count = selected_guest_count if is_selected_location else "2"
         card_origin_country = selected_origin_country if is_selected_location else ""
         card_member_category = selected_member_category if is_selected_location else ""
+        card_unit_id = selected_unit_id if is_selected_location else ""
         card_arrival_slot = preferred_arrival_slot if is_selected_location else ""
         card_arrival_note = preferred_arrival_note if is_selected_location else ""
         card_departure_slot = preferred_departure_slot if is_selected_location else ""
@@ -5933,15 +6014,26 @@ def render_search_page(connection, params, errors=None):
         highlights = location_content.get("highlights", [])
         summary_text = location_content.get("summary", "")
         season_text = location_content.get("season", "")
-        reference_year = datetime.now().year
-        if card_check_in:
-            try:
-                reference_year = parse_date(card_check_in).year
-            except ValueError:
-                pass
-        location_min_date, location_max_date = get_location_date_bounds(location["name"], reference_year)
-        min_attr = f' min="{location_min_date.isoformat()}"' if location_min_date else ""
-        max_attr = f' max="{location_max_date.isoformat()}"' if location_max_date else ""
+        unit_selection_html = ""
+        if location["whole_site_unit"]:
+            choices = []
+            for unit in location["units"] + [location["whole_site_unit"]]:
+                checked = " checked" if str(unit["id"]) == card_unit_id else ""
+                disabled = " disabled" if unit["is_whole_site"] and (not card_guest_count.isdecimal() or int(card_guest_count) <= 90) else ""
+                choices.append(f'''
+                  <label class="choice-item">
+                    <input type="radio" name="unit_id" value="{unit['id']}" data-capacity="{unit['max_guests']}" data-whole-site="{unit['is_whole_site']}" required{checked}{disabled}>
+                    <span>{html.escape(display_unit_name(unit['name'], lang))}<br><small>{html.escape(tf(lang, 'capacity_guests', count=unit['max_guests']))}</small></span>
+                  </label>
+                ''')
+            unit_selection_html = f'''
+                  <fieldset class="subcamp-selection">
+                    <legend>{html.escape(t(lang, 'choose_subcamp'))}</legend>
+                    <p class="muted">{html.escape(t(lang, 'choose_subcamp_first'))}</p>
+                    <div class="choice-list">{''.join(choices)}</div>
+                    <p class="muted">{html.escape(t(lang, 'whole_site_help'))}</p>
+                  </fieldset>
+            '''
         gallery_images = get_location_gallery(location["name"])
         lead_image = gallery_images[0]
         if len(gallery_images) > 1:
@@ -6030,6 +6122,7 @@ def render_search_page(connection, params, errors=None):
                 for key in params.keys()
                 if key not in {
                     "location_id",
+                    "unit_id",
                     "lang",
                     "check_in",
                     "check_out",
@@ -6072,10 +6165,11 @@ def render_search_page(connection, params, errors=None):
                   <h3>{html.escape(t(lang, "location_search_title"))}</h3>
                   <p class="muted">{html.escape(t(lang, "choose_intro"))}</p>
                 </div>
-                <form method="get" action="/type" class="search-form location-search-form" data-location-id="{location['id']}" data-location-name="{html.escape(location['name'])}" data-date-min="{location_min_date.isoformat() if location_min_date else ''}" data-date-max="{location_max_date.isoformat() if location_max_date else ''}" data-location-capacity="{location_capacity_total}">
+                <form method="get" action="/type" class="search-form location-search-form" data-location-id="{location['id']}" data-location-name="{html.escape(location['name'])}" data-season-limited="{int(is_season_limited_location(location['name']))}" data-location-capacity="{location_capacity_total}">
                   <input type="hidden" name="location_id" value="{location['id']}">
                   <input type="hidden" name="lang" value="{lang}">
                   {preserved_search_hidden}
+                  {unit_selection_html}
                   <label>
                     {html.escape(t(lang, "check_in"))}
                     <div class="checkout-picker checkin-picker">
@@ -6088,13 +6182,7 @@ def render_search_page(connection, params, errors=None):
                           <button type="button" class="calendar-next" aria-label="{html.escape(t(lang, 'calendar_next_month'))}">&rsaquo;</button>
                         </div>
                         <div class="checkout-calendar-weekdays">
-                          <span>Mo</span>
-                          <span>Tu</span>
-                          <span>We</span>
-                          <span>Th</span>
-                          <span>Fr</span>
-                          <span>Sa</span>
-                          <span>Su</span>
+                          {''.join(f'<span>{html.escape(day)}</span>' for day in t(lang, 'calendar_weekdays').split())}
                         </div>
                         <div class="checkout-calendar-days"></div>
                       </div>
@@ -6112,13 +6200,7 @@ def render_search_page(connection, params, errors=None):
                           <button type="button" class="calendar-next" aria-label="{html.escape(t(lang, 'calendar_next_month'))}">&rsaquo;</button>
                         </div>
                         <div class="checkout-calendar-weekdays">
-                          <span>Mo</span>
-                          <span>Tu</span>
-                          <span>We</span>
-                          <span>Th</span>
-                          <span>Fr</span>
-                          <span>Sa</span>
-                          <span>Su</span>
+                          {''.join(f'<span>{html.escape(day)}</span>' for day in t(lang, 'calendar_weekdays').split())}
                         </div>
                         <div class="checkout-calendar-days"></div>
                       </div>
@@ -6142,7 +6224,7 @@ def render_search_page(connection, params, errors=None):
                     <p class="stay-live-capacity">{html.escape(t(lang, "availability_choose_dates"))}</p>
                     <p class="stay-occupied-days" hidden style="display:none;"></p>
                     <p class="stay-warning" hidden>Minimum stay is 2 full boardings and 20 person. If there is less than 20 person, it is calculated for 20 person.</p>
-                    <p class="stay-warning stay-warning-capacity" hidden>This location cannot accept that many guests. Please choose fewer people or another location.</p>
+                    <p class="stay-warning stay-warning-capacity" hidden>{html.escape(t(lang, 'selected_unit_capacity' if location['whole_site_unit'] else 'too_many_guests_location'))}</p>
                     <div class="stay-details-extra">
                       <p>{html.escape(t(lang, "date_note"))}</p>
                       <div class="time-preference-grid">
@@ -6207,8 +6289,8 @@ def render_search_page(connection, params, errors=None):
         const details = form.querySelector('.stay-details');
         const locationId = form.getAttribute('data-location-id') || '';
         const locationName = form.getAttribute('data-location-name') || '';
-        const minDateValue = form.getAttribute('data-date-min') || '';
-        const maxDateValue = form.getAttribute('data-date-max') || '';
+        const seasonLimited = form.getAttribute('data-season-limited') === '1';
+        const unitInputs = Array.from(form.querySelectorAll('input[name="unit_id"][type="radio"]'));
         const locationCapacity = Number.parseInt(form.getAttribute('data-location-capacity') || '0', 10);
         let visibleCheckInMonthStart = null;
         let visibleMonthStart = null;
@@ -6217,6 +6299,9 @@ def render_search_page(connection, params, errors=None):
         let latestRemainingCapacity = null;
         let calendarAvailability = new Map();
         let loadedCalendarMonths = new Set();
+        let lastSelectedUnitId = '';
+        const selectedUnit = () => unitInputs.find(input => input.checked && !input.disabled);
+        const unitQuery = () => selectedUnit() ? '&unit_id=' + encodeURIComponent(selectedUnit().value) : '';
         const formatDate = (date) => {
           const year = date.getFullYear();
           const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -6227,8 +6312,17 @@ def render_search_page(connection, params, errors=None):
         const parseIsoDate = (value) => value ? new Date(value + 'T00:00:00') : null;
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const absoluteMinDate = parseIsoDate(minDateValue);
-        const absoluteMaxDate = parseIsoDate(maxDateValue);
+        const seasonStart = (year) => new Date(year, 4, 15);
+        const seasonEnd = (year) => new Date(year, 8, 15);
+        const firstAvailableDate = new Date(today);
+        if (seasonLimited) {
+          if (today < seasonStart(today.getFullYear())) {
+            firstAvailableDate.setTime(seasonStart(today.getFullYear()).getTime());
+          } else if (today >= seasonEnd(today.getFullYear())) {
+            firstAvailableDate.setTime(seasonStart(today.getFullYear() + 1).getTime());
+          }
+        }
+        const isAllowedNight = (date) => !seasonLimited || (date >= seasonStart(date.getFullYear()) && date < seasonEnd(date.getFullYear()));
         const availabilityLoadingText = %AVAILABILITY_LOADING%;
         const availabilityChooseDatesText = %AVAILABILITY_CHOOSE_DATES%;
         const availabilityRemainingTemplate = %AVAILABILITY_REMAINING%;
@@ -6239,6 +6333,7 @@ def render_search_page(connection, params, errors=None):
         const checkoutAfterCheckinText = %CHECKOUT_AFTER_CHECKIN%;
         const tooManyGuestsLocationText = %TOO_MANY_GUESTS_LOCATION%;
         const tooManyGuestsAvailableTemplate = %TOO_MANY_GUESTS_AVAILABLE%;
+        const placesLeftTemplate = %PLACES_LEFT%;
         const renderLocationTemplate = (template) => template.replace('{location}', locationName);
         const renderAvailabilityText = (count) => {
           if (count <= 0) {
@@ -6292,9 +6387,10 @@ def render_search_page(connection, params, errors=None):
           if (loadedCalendarMonths.has(key)) {
             return;
           }
-          const currentRequestId = ++calendarRequestId;
+          const currentRequestId = calendarRequestId;
+          loadedCalendarMonths.add(key);
           try {
-            const response = await fetch('/api/location-calendar?location_id=' + encodeURIComponent(locationId) + '&month=' + encodeURIComponent(key));
+            const response = await fetch('/api/location-calendar?location_id=' + encodeURIComponent(locationId) + '&month=' + encodeURIComponent(key) + unitQuery());
             if (!response.ok) {
               throw new Error('calendar request failed');
             }
@@ -6313,22 +6409,25 @@ def render_search_page(connection, params, errors=None):
             if (currentRequestId !== calendarRequestId) {
               return;
             }
+            loadedCalendarMonths.delete(key);
           }
         };
         const updateCapacityWarning = () => {
           const guestCount = Number.parseInt(guestCountInput.value || '0', 10);
-          const hardCapacityExceeded = Number.isFinite(locationCapacity) && locationCapacity > 0 && guestCount > locationCapacity;
+          const capacity = selectedUnit() ? Number.parseInt(selectedUnit().dataset.capacity, 10) : locationCapacity;
+          const hardCapacityExceeded = Number.isFinite(capacity) && capacity > 0 && guestCount > capacity;
           const liveCapacityExceeded = latestRemainingCapacity !== null && guestCount > latestRemainingCapacity;
           const exceeded = hardCapacityExceeded || liveCapacityExceeded;
           if (capacityWarning) {
             capacityWarning.hidden = !exceeded;
           }
-          if (continueButton && checkIn.value && checkOut.value) {
-            continueButton.disabled = exceeded;
+          if (continueButton) {
+            continueButton.disabled = exceeded || !checkIn.value || !checkOut.value || (unitInputs.length > 0 && !selectedUnit());
           }
           return exceeded;
         };
         const fetchLiveAvailability = async () => {
+          const currentRequestId = ++availabilityRequestId;
           if (!checkIn.value || !checkOut.value || !locationId) {
             latestRemainingCapacity = null;
             if (liveCapacity) {
@@ -6337,12 +6436,11 @@ def render_search_page(connection, params, errors=None):
             updateCapacityWarning();
             return;
           }
-          const currentRequestId = ++availabilityRequestId;
           if (liveCapacity) {
             liveCapacity.textContent = availabilityLoadingText;
           }
           try {
-            const response = await fetch('/api/location-availability?location_id=' + encodeURIComponent(locationId) + '&check_in=' + encodeURIComponent(checkIn.value) + '&check_out=' + encodeURIComponent(checkOut.value));
+            const response = await fetch('/api/location-availability?location_id=' + encodeURIComponent(locationId) + '&check_in=' + encodeURIComponent(checkIn.value) + '&check_out=' + encodeURIComponent(checkOut.value) + unitQuery());
             if (!response.ok) {
               throw new Error('availability request failed');
             }
@@ -6427,9 +6525,7 @@ def render_search_page(connection, params, errors=None):
           checkOutCalendar.hidden = true;
         };
         const renderCheckInCalendar = () => {
-          const effectiveMinDate = absoluteMinDate && absoluteMinDate > today
-            ? new Date(absoluteMinDate)
-            : new Date(today);
+          const effectiveMinDate = firstAvailableDate;
           if (!visibleCheckInMonthStart || visibleCheckInMonthStart < getMonthStart(effectiveMinDate)) {
             visibleCheckInMonthStart = getMonthStart(effectiveMinDate);
           }
@@ -6444,22 +6540,22 @@ def render_search_page(connection, params, errors=None):
             const current = new Date(monthStart.getFullYear(), monthStart.getMonth(), day);
             const value = formatDate(current);
             const beforeMin = current < effectiveMinDate;
-            const afterMax = absoluteMaxDate && current > absoluteMaxDate;
+            const outsideSeason = !isAllowedNight(current);
             const selected = value === checkIn.value;
             const classNames = ['calendar-day'];
             const dayData = calendarAvailability.get(value);
-            if (beforeMin || afterMax) classNames.push('calendar-day--disabled');
+            if (beforeMin || outsideSeason) classNames.push('calendar-day--disabled');
             if (selected) classNames.push('calendar-day--selected');
             if (dayData && dayData.full) classNames.push('calendar-day--full');
             else if (dayData && dayData.occupied) classNames.push('calendar-day--occupied');
-            const disabled = beforeMin || afterMax ? ' disabled' : '';
-            const title = dayData ? ' title="' + value + ': ' + formatDayAvailabilityLabel(dayData) + ' places left"' : '';
+            const disabled = beforeMin || outsideSeason || (dayData && dayData.full) ? ' disabled' : '';
+            const title = dayData ? ' title="' + value + ': ' + placesLeftTemplate.replace('{count}', formatDayAvailabilityLabel(dayData)) + '"' : '';
             const helper = dayData ? '<span class="calendar-day-meta">' + dayData.remaining_capacity + '</span>' : '';
             dayCells.push('<button type="button" class="' + classNames.join(' ') + '" data-date="' + value + '"' + title + disabled + '><span class="calendar-day-number">' + day + '</span>' + helper + '</button>');
           }
           checkInMonth.textContent = new Intl.DateTimeFormat(%LOCALE%, { month: 'long', year: 'numeric' }).format(monthStart);
-          checkInPrev.disabled = absoluteMinDate ? monthStart <= getMonthStart(absoluteMinDate) : false;
-          checkInNext.disabled = absoluteMaxDate ? monthStart >= getMonthStart(absoluteMaxDate) : false;
+          checkInPrev.disabled = monthStart <= getMonthStart(effectiveMinDate);
+          checkInNext.disabled = false;
           checkInDays.innerHTML = dayCells.join('');
           fetchCalendarAvailability(monthStart);
         };
@@ -6483,8 +6579,9 @@ def render_search_page(connection, params, errors=None):
           }
           const minDate = new Date(start);
           minDate.setDate(minDate.getDate() + 1);
-          const effectiveMinDate = absoluteMinDate && minDate < absoluteMinDate ? new Date(absoluteMinDate) : minDate;
-          if (absoluteMaxDate && start > absoluteMaxDate) {
+          const effectiveMinDate = minDate;
+          const maxDate = seasonLimited ? seasonEnd(start.getFullYear()) : null;
+          if (!isAllowedNight(start)) {
             checkOut.value = '';
             setCheckoutLabel();
             checkOutTrigger.disabled = true;
@@ -6492,10 +6589,10 @@ def render_search_page(connection, params, errors=None):
             return;
           }
           checkOutTrigger.disabled = false;
-          if (checkOut.value && (checkOut.value < formatDate(effectiveMinDate) || (maxDateValue && checkOut.value > maxDateValue))) {
+          if (checkOut.value && (checkOut.value < formatDate(effectiveMinDate) || (maxDate && checkOut.value > formatDate(maxDate)))) {
             checkOut.value = '';
           }
-          if (!visibleMonthStart || visibleMonthStart < getMonthStart(effectiveMinDate)) {
+          if (!visibleMonthStart || visibleMonthStart < getMonthStart(effectiveMinDate) || (maxDate && visibleMonthStart > getMonthStart(maxDate))) {
             visibleMonthStart = getMonthStart(effectiveMinDate);
           }
           setCheckoutLabel();
@@ -6510,7 +6607,7 @@ def render_search_page(connection, params, errors=None):
             const current = new Date(monthStart.getFullYear(), monthStart.getMonth(), day);
             const value = formatDate(current);
             const beforeMin = current < effectiveMinDate;
-            const afterMax = absoluteMaxDate && current > absoluteMaxDate;
+            const afterMax = maxDate && current > maxDate;
             const selected = value === checkOut.value;
             const classNames = ['calendar-day'];
             const dayData = calendarAvailability.get(value);
@@ -6519,22 +6616,43 @@ def render_search_page(connection, params, errors=None):
             if (dayData && dayData.full) classNames.push('calendar-day--full');
             else if (dayData && dayData.occupied) classNames.push('calendar-day--occupied');
             const disabled = beforeMin || afterMax ? ' disabled' : '';
-            const title = dayData ? ' title="' + value + ': ' + formatDayAvailabilityLabel(dayData) + ' places left"' : '';
+            const title = dayData ? ' title="' + value + ': ' + placesLeftTemplate.replace('{count}', formatDayAvailabilityLabel(dayData)) + '"' : '';
             const helper = dayData ? '<span class="calendar-day-meta">' + dayData.remaining_capacity + '</span>' : '';
             dayCells.push('<button type="button" class="' + classNames.join(' ') + '" data-date="' + value + '"' + title + disabled + '><span class="calendar-day-number">' + day + '</span>' + helper + '</button>');
           }
           checkOutMonth.textContent = new Intl.DateTimeFormat(%LOCALE%, { month: 'long', year: 'numeric' }).format(monthStart);
           checkOutPrev.disabled = monthStart <= getMonthStart(effectiveMinDate);
-          checkOutNext.disabled = absoluteMaxDate ? monthStart >= getMonthStart(absoluteMaxDate) : false;
+          checkOutNext.disabled = maxDate ? monthStart >= getMonthStart(maxDate) : false;
           checkOutDays.innerHTML = dayCells.join('');
           fetchCalendarAvailability(monthStart);
         };
         const recalc = () => {
-          renderCheckoutCalendar();
-          const checkInDate = parseIsoDate(checkIn.value);
+          availabilityRequestId += 1;
           const guestCount = Number.parseInt(guestCountInput.value || '0', 10);
+          unitInputs.filter(input => input.dataset.wholeSite === '1').forEach(input => {
+            input.disabled = guestCount <= 90 || !Number.isFinite(guestCount);
+            if (input.disabled) input.checked = false;
+          });
+          const unitId = selectedUnit() ? selectedUnit().value : '';
+          if (unitId !== lastSelectedUnitId) {
+            lastSelectedUnitId = unitId;
+            calendarRequestId += 1;
+            availabilityRequestId += 1;
+            loadedCalendarMonths.clear();
+            calendarAvailability.clear();
+            latestRemainingCapacity = null;
+          }
+          const missingUnit = unitInputs.length > 0 && !selectedUnit();
+          checkInTrigger.disabled = missingUnit;
+          renderCheckoutCalendar();
+          if (missingUnit) {
+            checkOutTrigger.disabled = true;
+            closeCheckInCalendar();
+            closeCheckoutCalendar();
+          }
+          const checkInDate = parseIsoDate(checkIn.value);
           const overCapacity = updateCapacityWarning();
-          if (checkInDate && ((absoluteMinDate && checkInDate < absoluteMinDate) || (absoluteMaxDate && checkInDate > absoluteMaxDate))) {
+          if (checkInDate && (!isAllowedNight(checkInDate) || checkInDate < today)) {
             output.textContent = dateOutsideAllowedText;
             latestRemainingCapacity = null;
             if (liveCapacity) {
@@ -6550,7 +6668,7 @@ def render_search_page(connection, params, errors=None):
             details.classList.remove('is-ready');
             return;
           }
-          if (!checkIn.value || !checkOut.value) {
+          if (!checkIn.value || !checkOut.value || missingUnit) {
             output.textContent = %CHOOSE_DATES%;
             latestRemainingCapacity = null;
             if (liveCapacity) {
@@ -6561,7 +6679,7 @@ def render_search_page(connection, params, errors=None):
               warning.hidden = true;
             }
             if (continueButton) {
-              continueButton.disabled = overCapacity;
+              continueButton.disabled = true;
             }
             details.classList.remove('is-ready');
             return;
@@ -6621,6 +6739,10 @@ def render_search_page(connection, params, errors=None):
           });
         }
         guestCountInput.addEventListener('input', recalc);
+        unitInputs.forEach(input => input.addEventListener('change', () => {
+          recalc();
+          if (!checkInCalendar.hidden) renderCheckInCalendar();
+        }));
         if (originCountryInput) {
           originCountryInput.addEventListener('input', syncMemberCategory);
           originCountryInput.addEventListener('change', syncMemberCategory);
@@ -6857,6 +6979,7 @@ def render_search_page(connection, params, errors=None):
     script = script.replace("%CHECKOUT_AFTER_CHECKIN%", json.dumps(t(lang, "checkout_after_checkin")))
     script = script.replace("%TOO_MANY_GUESTS_LOCATION%", json.dumps(t(lang, "too_many_guests_location")))
     script = script.replace("%TOO_MANY_GUESTS_AVAILABLE%", json.dumps(t(lang, "too_many_guests_available")))
+    script = script.replace("%PLACES_LEFT%", json.dumps(t(lang, "places_left")))
     script = script.replace("%LOCALE%", "'" + ("sl-SI" if lang == "sl" else "en-GB") + "'")
     return render_layout(t(lang, "app_title"), intro + f'<div class="location-grid">{"".join(cards)}</div>' + script, notice=notice, lang=lang, current_path="/period", current_params=params, is_admin=admin_mode)
 
@@ -7236,6 +7359,8 @@ def validate_booking_form(connection, form, admin_mode=False):
 
     if check_out <= check_in:
         errors.append("Check-out must be after check-in.")
+    elif not is_location_date_range_allowed(unit["location_name"], check_in, check_out):
+        errors.append(t(get_lang(form.get("lang", "en")), "date_outside_allowed"))
 
     try:
         guest_count = int(form.get("guest_count", "0"))
@@ -7682,8 +7807,8 @@ def render_admin_page(connection, notice="", filters=None):
 
     unit_options = []
     for location in locations:
-        for unit in location["units"]:
-            label = f"{location['name']} / {unit['name']} ({unit['max_guests']} guests, EUR {unit['price_per_guest_per_night']:.2f})"
+        for unit in location["units"] + ([location["whole_site_unit"]] if location["whole_site_unit"] else []):
+            label = f"{display_location_with_unit(location['name'], unit['name'], lang)} ({unit['max_guests']} guests, EUR {unit['price_per_guest_per_night']:.2f})"
             unit_options.append(f'<option value="{unit["id"]}">{html.escape(label)}</option>')
 
     content = f"""
@@ -7915,6 +8040,7 @@ def render_status_options(selected, lang="en"):
 def handle_location_availability_api(environ):
     query_params = parse_qs(environ.get("QUERY_STRING", ""), keep_blank_values=True)
     location_id = (query_params.get("location_id") or [""])[0]
+    unit_id = (query_params.get("unit_id") or [""])[0]
     check_in_value = (query_params.get("check_in") or [""])[0]
     check_out_value = (query_params.get("check_out") or [""])[0]
     if not location_id or not check_in_value or not check_out_value:
@@ -7927,7 +8053,7 @@ def handle_location_availability_api(environ):
     if check_out <= check_in:
         return json_response({"error": "Check-out must be after check-in."}, status="400 Bad Request")
     with closing(get_connection()) as connection:
-        summary = get_location_availability_summary(connection, location_id, check_in, check_out)
+        summary = get_location_availability_summary(connection, location_id, check_in, check_out, unit_id=unit_id)
     if not summary:
         return json_response({"error": "Location not found."}, status="404 Not Found")
     return json_response(summary)
@@ -7936,6 +8062,7 @@ def handle_location_availability_api(environ):
 def handle_location_calendar_api(environ):
     query_params = parse_qs(environ.get("QUERY_STRING", ""), keep_blank_values=True)
     location_id = (query_params.get("location_id") or [""])[0]
+    unit_id = (query_params.get("unit_id") or [""])[0]
     month_value = (query_params.get("month") or [""])[0]
     if not location_id or not month_value:
         return json_response({"error": "Missing parameters."}, status="400 Bad Request")
@@ -7945,7 +8072,7 @@ def handle_location_calendar_api(environ):
         return json_response({"error": "Invalid month."}, status="400 Bad Request")
     next_month = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
     with closing(get_connection()) as connection:
-        summary = get_location_daily_availability(connection, location_id, month_start, next_month)
+        summary = get_location_daily_availability(connection, location_id, month_start, next_month, unit_id=unit_id)
     if not summary:
         return json_response({"error": "Location not found."}, status="404 Not Found")
     return json_response(summary)
@@ -8039,6 +8166,22 @@ def application(environ, start_response):
                 if location_id:
                     locations = {location["id"]: location for location in fetch_locations(connection)}
                     location = locations.get(location_id)
+                    requested_unit_id = params.get("unit_id", "")
+                    if location and location["whole_site_unit"] and not requested_unit_id:
+                        errors.append(t(get_lang(params.get("lang", "en")), "choose_subcamp_first"))
+                    if requested_unit_id:
+                        try:
+                            requested_unit = get_unit(connection, int(requested_unit_id))
+                        except ValueError:
+                            requested_unit = None
+                        if not requested_unit or requested_unit["location_id"] != location_id:
+                            errors.append(t(get_lang(params.get("lang", "en")), "selected_unit_not_found"))
+                        elif requested_unit["is_whole_site"]:
+                            try:
+                                if int(params.get("guest_count", "0")) <= 90:
+                                    errors.append(t(get_lang(params.get("lang", "en")), "whole_site_minimum"))
+                            except ValueError:
+                                pass
                     if location and requested_check_in and requested_check_out:
                         if not is_location_date_range_allowed(location["name"], requested_check_in, requested_check_out):
                             errors.append("Selected dates are outside the allowed period for this location.")
