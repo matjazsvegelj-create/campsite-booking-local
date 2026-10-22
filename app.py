@@ -5249,7 +5249,8 @@ def render_layout(
 <body>
   <div class="site-navigation">
   <header class="site-header">
-    <div>
+    <div class="site-brand">
+      <img class="site-logo" src="/static/scout-centre-logo.svg" alt="Scout Centre Bohinj" width="213" height="156">
       <h1>{html.escape(title)}</h1>
     </div>
     <div class="header-right">

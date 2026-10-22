@@ -53,6 +53,21 @@ main {
   align-items: end;
 }
 
+.site-brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.site-logo {
+  display: block;
+  flex: 0 0 auto;
+  width: 96px;
+  height: auto;
+}
+
 .site-header h1,
 .panel h2,
 .unit-card h3 {
@@ -2331,6 +2346,14 @@ td {
   .site-header h1 {
     font-size: 1.9rem;
     line-height: 1.05;
+  }
+
+  .site-brand {
+    gap: 0.75rem;
+  }
+
+  .site-logo {
+    width: 72px;
   }
 
   .panel {
