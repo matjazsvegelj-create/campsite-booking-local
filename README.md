@@ -6,7 +6,7 @@ Minimal local prototype for campsite and house booking.
 
 - public availability search by `check_in`, `check_out`, and `guest_count`
 - `Laski rovt ZTS` split into `Subcamp 1`, `Subcamp 2`, and `Subcamp 3`
-- choose a subcamp before selecting dates, or book all three together as the whole site (maximum 125 guests)
+- choose a subcamp before selecting dates; groups of more than 90 guests can book all three together as the whole site (maximum 125 guests)
 - whole-site accommodation is charged for at least 100 people per night; capacity and tourist tax use the actual guest count
 - whole-site bookings reserve all three subcamps and are unavailable if any subcamp has an active overlapping booking
 - seasonal locations accept stays from 15 May to 15 September each year, including future years

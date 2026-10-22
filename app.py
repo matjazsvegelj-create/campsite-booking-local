@@ -54,12 +54,12 @@ LOCATION_CONTENT = {
     "Laski rovt ZTS": {
         "en": {
             "summary": "A large summer campsite in Bohinj with three subcamps for scout groups that want flexible layouts and fast access to the lake area.",
-            "highlights": ["Up to 125 guests across 3 subcamps. Choose a subcamp, or reserve the whole site with a minimum charge for 100 people per night.", "Summer season location", "Best for larger group camps"],
+            "highlights": ["Up to 125 guests across 3 subcamps. Groups of more than 90 guests can reserve the whole site, with a minimum charge for 100 people per night.", "Summer season location", "Best for larger group camps"],
             "season": "Open from 15 May to 15 September",
         },
         "sl": {
             "summary": "Velik poletni taborni prostor v Bohinju s tremi podtabori za skupine, ki potrebujejo prilagodljivo razporeditev in hiter dostop do jezerskega območja.",
-            "highlights": ["Do 125 gostov v 3 podtaborih. Izberite podtabor ali rezervirajte celoten taborni prostor z najmanjšim obračunom za 100 oseb na noč.", "Lokacija za poletno sezono", "Primerno za večje tabore"],
+            "highlights": ["Do 125 gostov v 3 podtaborih. Skupine z več kot 90 gosti lahko rezervirajo celoten taborni prostor z najmanjšim obračunom za 100 oseb na noč.", "Lokacija za poletno sezono", "Primerno za večje tabore"],
             "season": "Odprto od 15. maja do 15. septembra",
         },
     },
@@ -150,8 +150,9 @@ TEXTS = {
         "choose_subcamp": "Choose your subcamp",
         "choose_subcamp_first": "Choose a subcamp first, then select your dates.",
         "whole_site": "Whole site (Subcamps 1, 2 and 3)",
-        "whole_site_help": "Reserve all three subcamps together for up to 125 guests. All three subcamps must be available.",
+        "whole_site_help": "Groups of more than 90 guests can reserve the whole site, up to 125 guests. All three subcamps must be available.",
         "whole_site_minimum": "Minimum accommodation charge: 100 people per night.",
+        "whole_site_group_minimum": "The whole-site option is available for groups of more than 90 guests.",
         "selected_unit_capacity": "The selected subcamp cannot accept this many guests. Choose another option or reduce the guest count.",
         "availability_by_unit": "Availability by unit",
         "no_reservations": "No reservations in this period.",
@@ -449,8 +450,9 @@ TEXTS = {
         "choose_subcamp": "Izberite podtabor",
         "choose_subcamp_first": "Najprej izberite podtabor, nato izberite termin.",
         "whole_site": "Celoten taborni prostor (podtabori 1, 2 in 3)",
-        "whole_site_help": "Rezervirajte vse tri podtabore skupaj za največ 125 gostov. Vsi trije podtabori morajo biti prosti.",
+        "whole_site_help": "Skupine z več kot 90 gosti lahko rezervirajo celoten taborni prostor za največ 125 gostov. Vsi trije podtabori morajo biti prosti.",
         "whole_site_minimum": "Najmanjši obračun nastanitve: 100 oseb na noč.",
+        "whole_site_group_minimum": "Celoten taborni prostor lahko rezervirajo skupine z več kot 90 gosti.",
         "selected_unit_capacity": "Izbrani podtabor ne more sprejeti toliko gostov. Izberite drugo možnost ali zmanjšajte število gostov.",
         "availability_by_unit": "Razpoložljivost po enotah",
         "no_reservations": "V tem obdobju ni rezervacij.",
@@ -2887,6 +2889,8 @@ def capacity_check(connection, unit_id, check_in, check_out, guest_count, exclud
         connection, unit_id, check_in, check_out, exclude_booking_id=exclude_booking_id
     )
     violations = []
+    if unit["is_whole_site"] and guest_count <= 90:
+        violations.append(t("en", "whole_site_group_minimum"))
     nightly = []
     for stay_date in daterange(check_in, check_out):
         reserved = reservations.get(stay_date, 0)
@@ -3870,7 +3874,7 @@ def render_type_page(connection, params, errors=None):
     laski_flow = is_laski_location(location["name"])
     selected_boarding_option = None
     available_units = []
-    booking_units = location["units"] + ([location["whole_site_unit"]] if location["whole_site_unit"] else [])
+    booking_units = location["units"] + ([location["whole_site_unit"]] if location["whole_site_unit"] and requested_guest_count > 90 else [])
     for unit in booking_units:
         if selected_unit_id and str(unit["id"]) != selected_unit_id:
             continue
@@ -6022,9 +6026,10 @@ def render_search_page(connection, params, errors=None):
             for unit in location["units"] + [location["whole_site_unit"]]:
                 checked = " checked" if str(unit["id"]) == card_unit_id else ""
                 minimum_charge_html = f'<br><small>{html.escape(t(lang, "whole_site_minimum"))}</small>' if unit["is_whole_site"] else ""
+                disabled = " disabled" if unit["is_whole_site"] and (not card_guest_count.isdecimal() or int(card_guest_count) <= 90) else ""
                 choices.append(f'''
                   <label class="choice-item">
-                    <input type="radio" name="unit_id" value="{unit['id']}" data-capacity="{unit['max_guests']}" data-whole-site="{unit['is_whole_site']}" required{checked}>
+                    <input type="radio" name="unit_id" value="{unit['id']}" data-capacity="{unit['max_guests']}" data-whole-site="{unit['is_whole_site']}" required{checked}{disabled}>
                     <span>{html.escape(display_unit_name(unit['name'], lang))}<br><small>{html.escape(tf(lang, 'capacity_guests', count=unit['max_guests']))}</small>{minimum_charge_html}</span>
                   </label>
                 ''')
@@ -6631,6 +6636,10 @@ def render_search_page(connection, params, errors=None):
         const recalc = () => {
           availabilityRequestId += 1;
           const guestCount = Number.parseInt(guestCountInput.value || '0', 10);
+          unitInputs.filter(input => input.dataset.wholeSite === '1').forEach(input => {
+            input.disabled = guestCount <= 90 || !Number.isFinite(guestCount);
+            if (input.disabled) input.checked = false;
+          });
           const unitId = selectedUnit() ? selectedUnit().value : '';
           if (unitId !== lastSelectedUnitId) {
             lastSelectedUnitId = unitId;
@@ -8174,6 +8183,12 @@ def application(environ, start_response):
                             requested_unit = None
                         if not requested_unit or requested_unit["location_id"] != location_id:
                             errors.append(t(get_lang(params.get("lang", "en")), "selected_unit_not_found"))
+                        elif requested_unit["is_whole_site"]:
+                            try:
+                                if int(params.get("guest_count", "0")) <= 90:
+                                    errors.append(t(get_lang(params.get("lang", "en")), "whole_site_group_minimum"))
+                            except ValueError:
+                                pass
                     if location and requested_check_in and requested_check_out:
                         if not is_location_date_range_allowed(location["name"], requested_check_in, requested_check_out):
                             errors.append("Selected dates are outside the allowed period for this location.")
