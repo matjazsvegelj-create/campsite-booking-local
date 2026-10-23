@@ -10,7 +10,8 @@ Minimal local prototype for campsite and house booking.
 - whole-site accommodation is charged for at least 100 people per night; capacity and tourist tax use the actual guest count
 - whole-site bookings reserve all three subcamps and are unavailable if any subcamp has an active overlapping booking
 - seasonal locations accept stays from 15 May to 15 September each year, including future years
-- Laški rovt ZTS, ZR, and MB availability timelines automatically mark 15 September–14 May as seasonally closed each year
+- Laški rovt ZTS, ZR, MB, and Ukanc camping area timelines automatically mark 15 September–14 May as seasonally closed each year
+- Baredi and Radlje ob Dravi mark that off-season period as open on request; selected dates require campsite confirmation and remain subject to actual capacity
 - `Laski rovt ZR`, `Laski rovt MB`, `Taborni prostor Ukanc`, `Gozdna sola Ukanc`, `Taborni prostor Baredi`, and `Taborni prostor Radlje ob Dravi`
 - per-night capacity checks
 - `pending` and `confirmed` bookings reserve capacity

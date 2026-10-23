@@ -115,24 +115,24 @@ LOCATION_CONTENT = {
         "en": {
             "summary": "A coastal-region campsite option for scout groups looking for an outdoor base away from Bohinj.",
             "highlights": ["Up to 50 guests", "Single campsite", "Good for regional group stays"],
-            "season": "Open based on local availability",
+            "season": "Open based on local availability. From 15 September to 14 May, stays are possible on request and subject to confirmation.",
         },
         "sl": {
             "summary": "Taborni prostor na Primorskem za skupine, ki iščejo zunanjo bazo izven Bohinja.",
             "highlights": ["Do 50 gostov", "En taborni prostor", "Primerno za regionalna bivanja"],
-            "season": "Odprto glede na lokalno razpoložljivost",
+            "season": "Odprto glede na lokalno razpoložljivost. Od 15. septembra do 14. maja so bivanja mogoča na povpraševanje in ob potrditvi.",
         },
     },
     "Taborni prostor Radlje ob Dravi": {
         "en": {
             "summary": "A spacious campsite for larger outdoor groups in the Radlje ob Dravi area with a simple booking setup.",
             "highlights": ["Up to 120 guests", "Single campsite", "Simple setup for large groups"],
-            "season": "Open based on local availability",
+            "season": "Open based on local availability. From 15 September to 14 May, stays are possible on request and subject to confirmation.",
         },
         "sl": {
             "summary": "Prostoren taborni prostor za večje skupine na območju Radelj ob Dravi z enostavno rezervacijsko postavitvijo.",
             "highlights": ["Do 120 gostov", "En taborni prostor", "Enostavna postavitev za večje skupine"],
-            "season": "Odprto glede na lokalno razpoložljivost",
+            "season": "Odprto glede na lokalno razpoložljivost. Od 15. septembra do 14. maja so bivanja mogoča na povpraševanje in ob potrditvi.",
         },
     },
 }
@@ -158,6 +158,9 @@ TEXTS = {
         "no_reservations": "No reservations in this period.",
         "seasonally_closed": "Not open — seasonal closure",
         "seasonal_closure_legend": "Seasonally closed: 15 September–14 May. Reopens on 15 May.",
+        "seasonal_on_request": "Open on request",
+        "seasonal_on_request_legend": "15 September–14 May: open on request, subject to confirmation.",
+        "seasonal_request_notice": "Your dates include the off-season. Availability is on request and must be confirmed by the campsite team.",
         "calendar_weekdays": "Mo Tu We Th Fr Sa Su",
         "calendar_months": "January|February|March|April|May|June|July|August|September|October|November|December",
         "places_left": "{count} places left",
@@ -460,6 +463,9 @@ TEXTS = {
         "no_reservations": "V tem obdobju ni rezervacij.",
         "seasonally_closed": "Zaprto — sezonsko zaprtje",
         "seasonal_closure_legend": "Sezonsko zaprto: od 15. septembra do 14. maja. Ponovno odprto 15. maja.",
+        "seasonal_on_request": "Odprto na povpraševanje",
+        "seasonal_on_request_legend": "Od 15. septembra do 14. maja: odprto na povpraševanje in ob potrditvi.",
+        "seasonal_request_notice": "Izbrani termin vključuje bivanje zunaj glavne sezone. Razpoložljivost je na povpraševanje in jo mora potrditi osebje tabornega prostora.",
         "calendar_weekdays": "Po To Sr Če Pe So Ne",
         "calendar_months": "januar|februar|marec|april|maj|junij|julij|avgust|september|oktober|november|december",
         "places_left": "Še {count} prostih mest",
@@ -816,6 +822,7 @@ DYNAMIC_PRICING_LOCATION_NAMES = {
 }
 LASKI_LOCATION_NAMES = {"Laski rovt ZTS", "Laski rovt ZR", "Laski rovt MB"}
 SEASON_LIMITED_LOCATION_NAMES = {"Laski rovt ZTS", "Laski rovt ZR", "Laski rovt MB", "Taborni prostor Ukanc"}
+ON_REQUEST_LOCATION_NAMES = {"Taborni prostor Baredi", "Taborni prostor Radlje ob Dravi"}
 MEMBER_CATEGORIES = [
     ("zts_member", "Member of Taborniki / ZTS"),
     ("other", "Others / foreign scouts / non-scouts"),
@@ -1802,6 +1809,7 @@ def build_summary_breakdown(connection, unit, check_in, check_out, guest_count, 
     return {
         "rows": rows,
         "whole_site": bool(unit["is_whole_site"]),
+        "on_request": any(get_location_seasonal_status(unit["location_name"], stay_date) == "on_request" for stay_date in daterange(check_in, check_out)),
         "total_nights": total_nights,
         "total_amount": total_amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
         "summary_price_text": summary_price_text,
@@ -1858,6 +1866,7 @@ def render_breakdown_table(breakdown, lang="en"):
     )
     return f"""
     {f'<p class="muted">{html.escape(t(lang, "whole_site_minimum"))}</p>' if breakdown.get("whole_site") else ''}
+    {f'<p class="seasonal-request-notice">{html.escape(t(lang, "seasonal_request_notice"))}</p>' if breakdown.get("on_request") else ''}
     <div class="table-wrap summary-breakdown-wrap">
       <table class="summary-breakdown-table">
         <thead>
@@ -2954,6 +2963,7 @@ def get_location_availability_summary(connection, location_id, check_in, check_o
         "location_id": int(location["id"]),
         "location_name": location["name"],
         "remaining_capacity": remaining_capacity,
+        "on_request": any(get_location_seasonal_status(location["name"], stay_date) == "on_request" for stay_date in daterange(check_in, check_out)),
         "units": unit_summaries,
     }
 
@@ -2992,6 +3002,7 @@ def get_location_daily_availability(connection, location_id, start_date, end_dat
                 "total_capacity": total_capacity,
                 "occupied": remaining < total_capacity,
                 "full": remaining <= 0,
+                "on_request": get_location_seasonal_status(location["name"], current_date) == "on_request",
             }
         )
     return {
@@ -3455,10 +3466,12 @@ def render_booking_board(locations, bookings, board_start, board_end, lang="en",
 
     location_sections = []
     for location in locations:
+        on_request = location["name"] in ON_REQUEST_LOCATION_NAMES
+        seasonal_class = "is-on-request" if on_request else "is-seasonally-closed"
+        seasonal_label = t(lang, "seasonal_on_request" if on_request else "seasonally_closed")
         closed_dates = {
             current for current in board_dates
-            if is_laski_location(location["name"])
-            and not is_location_date_range_allowed(location["name"], current, current + timedelta(days=1))
+            if get_location_seasonal_status(location["name"], current)
         }
         closed_periods = []
         day_cells = []
@@ -3468,26 +3481,26 @@ def render_booking_board(locations, bookings, board_start, board_end, lang="en",
             if current.weekday() >= 5:
                 classes.append("is-weekend")
             if current in closed_dates:
-                classes.append("is-seasonally-closed")
+                classes.append(seasonal_class)
                 if closed_periods and closed_periods[-1][1] == current and current.day != 1:
                     closed_periods[-1] = (closed_periods[-1][0], current + timedelta(days=1))
                 else:
                     closed_periods.append((current, current + timedelta(days=1)))
-            title = f' title="{current.isoformat()}: {html.escape(t(lang, "seasonally_closed"))}"' if current in closed_dates else ""
+            title = f' title="{current.isoformat()}: {html.escape(seasonal_label)}"' if current in closed_dates else ""
             day_cells.append(f'<div class="{" ".join(classes)}" data-date="{current.isoformat()}"{title}><span>{current.day}</span></div>')
-            grid_cells.append(f'<span class="booking-board-cell{" is-seasonally-closed" if current in closed_dates else ""}" data-date="{current.isoformat()}"{title}></span>')
+            grid_cells.append(f'<span class="booking-board-cell{" " + seasonal_class if current in closed_dates else ""}" data-date="{current.isoformat()}"{title}></span>')
         closure_bands = []
         for closed_start, closed_end in closed_periods:
             left = ((closed_start - board_start).days / range_days) * 100
             width = ((closed_end - closed_start).days / range_days) * 100
-            label = t(lang, "seasonally_closed")
+            label = seasonal_label
             title = f"{label}: {closed_start.isoformat()} – {(closed_end - timedelta(days=1)).isoformat()}"
             closure_bands.append(f'''
-              <div class="booking-board-closure" data-start="{closed_start.isoformat()}" data-end="{closed_end.isoformat()}" style="left:{left:.4f}%; width:{width:.4f}%;" title="{html.escape(title)}" role="img" aria-label="{html.escape(title)}">
+              <div class="booking-board-closure {seasonal_class}" data-status="{'on_request' if on_request else 'closed'}" data-start="{closed_start.isoformat()}" data-end="{closed_end.isoformat()}" style="left:{left:.4f}%; width:{width:.4f}%;" title="{html.escape(title)}" role="img" aria-label="{html.escape(title)}">
                 <span>{html.escape(label)}</span>
               </div>
             ''')
-        closure_legend = f'<p class="board-closure-legend"><span class="board-closure-swatch" aria-hidden="true"></span>{html.escape(t(lang, "seasonal_closure_legend"))}</p>' if is_laski_location(location["name"]) else ""
+        closure_legend = f'<p class="board-closure-legend"><span class="board-closure-swatch {seasonal_class}" aria-hidden="true"></span>{html.escape(t(lang, "seasonal_on_request_legend" if on_request else "seasonal_closure_legend"))}</p>' if is_season_limited_location(location["name"]) or on_request else ""
         unit_rows = []
         for unit in location["units"]:
             relevant_bookings = []
@@ -3638,6 +3651,17 @@ def is_season_limited_location(location_name):
 
 def seasonal_bounds_for_year(year):
     return datetime(year, 5, 15).date(), datetime(year, 9, 15).date()
+
+
+def get_location_seasonal_status(location_name, stay_date):
+    start, end = seasonal_bounds_for_year(stay_date.year)
+    if start <= stay_date < end:
+        return ""
+    if is_season_limited_location(location_name):
+        return "closed"
+    if location_name in ON_REQUEST_LOCATION_NAMES:
+        return "on_request"
+    return ""
 
 
 def get_location_date_bounds(location_name, year):
@@ -6261,6 +6285,7 @@ def render_search_page(connection, params, errors=None):
                     <h3>{html.escape(t(lang, "total_nights"))}</h3>
                     <p class="stay-nights">{html.escape(t(lang, "choose_dates_to_calc"))}</p>
                     <p class="stay-live-capacity">{html.escape(t(lang, "availability_choose_dates"))}</p>
+                    <p class="seasonal-request-notice" hidden>{html.escape(t(lang, "seasonal_request_notice"))}</p>
                     <p class="stay-occupied-days" hidden style="display:none;"></p>
                     <p class="stay-warning" hidden>Minimum stay is 2 full boardings and 20 person. If there is less than 20 person, it is calculated for 20 person.</p>
                     <p class="stay-warning stay-warning-capacity" hidden>{html.escape(t(lang, 'selected_unit_capacity' if location['whole_site_unit'] else 'too_many_guests_location'))}</p>
@@ -6322,6 +6347,7 @@ def render_search_page(connection, params, errors=None):
         const continueButton = form.querySelector('button[type="submit"]');
         const output = form.querySelector('.stay-nights');
         const liveCapacity = form.querySelector('.stay-live-capacity');
+        const seasonalRequestNotice = form.querySelector('.seasonal-request-notice');
         const occupiedDaysOutput = form.querySelector('.stay-occupied-days');
         const warning = form.querySelector('.stay-warning');
         const capacityWarning = form.querySelector('.stay-warning-capacity');
@@ -6373,6 +6399,7 @@ def render_search_page(connection, params, errors=None):
         const tooManyGuestsLocationText = %TOO_MANY_GUESTS_LOCATION%;
         const tooManyGuestsAvailableTemplate = %TOO_MANY_GUESTS_AVAILABLE%;
         const placesLeftTemplate = %PLACES_LEFT%;
+        const onRequestText = %SEASONAL_ON_REQUEST%;
         const renderLocationTemplate = (template) => template.replace('{location}', locationName);
         const renderAvailabilityText = (count) => {
           if (count <= 0) {
@@ -6488,6 +6515,7 @@ def render_search_page(connection, params, errors=None):
               return;
             }
             latestRemainingCapacity = Number.parseInt(String(data.remaining_capacity || 0), 10);
+            seasonalRequestNotice.hidden = !data.on_request;
             if (liveCapacity) {
               liveCapacity.textContent = renderAvailabilityText(latestRemainingCapacity);
             }
@@ -6585,10 +6613,11 @@ def render_search_page(connection, params, errors=None):
             const dayData = calendarAvailability.get(value);
             if (beforeMin || outsideSeason) classNames.push('calendar-day--disabled');
             if (selected) classNames.push('calendar-day--selected');
+            if (dayData && dayData.on_request) classNames.push('calendar-day--on-request');
             if (dayData && dayData.full) classNames.push('calendar-day--full');
             else if (dayData && dayData.occupied) classNames.push('calendar-day--occupied');
             const disabled = beforeMin || outsideSeason || (dayData && dayData.full) ? ' disabled' : '';
-            const title = dayData ? ' title="' + value + ': ' + placesLeftTemplate.replace('{count}', formatDayAvailabilityLabel(dayData)) + '"' : '';
+            const title = dayData ? ' title="' + value + ': ' + placesLeftTemplate.replace('{count}', formatDayAvailabilityLabel(dayData)) + (dayData.on_request ? ' — ' + onRequestText : '') + '"' : '';
             const helper = dayData ? '<span class="calendar-day-meta">' + dayData.remaining_capacity + '</span>' : '';
             dayCells.push('<button type="button" class="' + classNames.join(' ') + '" data-date="' + value + '"' + title + disabled + '><span class="calendar-day-number">' + day + '</span>' + helper + '</button>');
           }
@@ -6652,10 +6681,11 @@ def render_search_page(connection, params, errors=None):
             const dayData = calendarAvailability.get(value);
             if (beforeMin || afterMax) classNames.push('calendar-day--disabled');
             if (selected) classNames.push('calendar-day--selected');
+            if (dayData && dayData.on_request) classNames.push('calendar-day--on-request');
             if (dayData && dayData.full) classNames.push('calendar-day--full');
             else if (dayData && dayData.occupied) classNames.push('calendar-day--occupied');
             const disabled = beforeMin || afterMax ? ' disabled' : '';
-            const title = dayData ? ' title="' + value + ': ' + placesLeftTemplate.replace('{count}', formatDayAvailabilityLabel(dayData)) + '"' : '';
+            const title = dayData ? ' title="' + value + ': ' + placesLeftTemplate.replace('{count}', formatDayAvailabilityLabel(dayData)) + (dayData.on_request ? ' — ' + onRequestText : '') + '"' : '';
             const helper = dayData ? '<span class="calendar-day-meta">' + dayData.remaining_capacity + '</span>' : '';
             dayCells.push('<button type="button" class="' + classNames.join(' ') + '" data-date="' + value + '"' + title + disabled + '><span class="calendar-day-number">' + day + '</span>' + helper + '</button>');
           }
@@ -6667,6 +6697,7 @@ def render_search_page(connection, params, errors=None):
         };
         const recalc = () => {
           availabilityRequestId += 1;
+          seasonalRequestNotice.hidden = true;
           const guestCount = Number.parseInt(guestCountInput.value || '0', 10);
           unitInputs.filter(input => input.dataset.wholeSite === '1').forEach(input => {
             input.disabled = guestCount <= 90 || !Number.isFinite(guestCount);
@@ -7019,6 +7050,7 @@ def render_search_page(connection, params, errors=None):
     script = script.replace("%TOO_MANY_GUESTS_LOCATION%", json.dumps(t(lang, "too_many_guests_location")))
     script = script.replace("%TOO_MANY_GUESTS_AVAILABLE%", json.dumps(t(lang, "too_many_guests_available")))
     script = script.replace("%PLACES_LEFT%", json.dumps(t(lang, "places_left")))
+    script = script.replace("%SEASONAL_ON_REQUEST%", json.dumps(t(lang, "seasonal_on_request")))
     script = script.replace("%LOCALE%", "'" + ("sl-SI" if lang == "sl" else "en-GB") + "'")
     return render_layout(t(lang, "app_title"), intro + f'<div class="location-grid">{"".join(cards)}</div>' + script, notice=notice, lang=lang, current_path="/period", current_params=params, is_admin=admin_mode)
 

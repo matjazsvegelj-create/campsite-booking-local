@@ -2026,6 +2026,20 @@ td {
   color: #625b52;
 }
 
+.board-day.is-on-request,
+.calendar-day--on-request:not(.calendar-day--selected):not(.calendar-day--full) {
+  background: #f3e5bf;
+  color: #70511b;
+}
+
+.seasonal-request-notice {
+  padding: 0.75rem;
+  border: 1px solid #d4b774;
+  border-radius: 10px;
+  background: #faf1d8;
+  color: #70511b;
+}
+
 .board-closure-legend {
   display: flex;
   align-items: center;
@@ -2058,6 +2072,13 @@ td {
   color: #514a41;
   font-size: 0.75rem;
   white-space: nowrap;
+}
+
+.booking-board-closure.is-on-request,
+.board-closure-swatch.is-on-request {
+  background: repeating-linear-gradient(135deg, #faf1d8 0, #faf1d8 6px, #ecd8a6 6px, #ecd8a6 9px);
+  border-color: #d4b774;
+  color: #70511b;
 }
 
 .board-day span,
