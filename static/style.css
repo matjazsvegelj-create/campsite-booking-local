@@ -609,6 +609,10 @@ main {
   min-width: 0;
 }
 
+.location-card--wide {
+  flex-basis: 100%;
+}
+
 .location-overview {
   display: grid;
   grid-template-columns: 1fr;

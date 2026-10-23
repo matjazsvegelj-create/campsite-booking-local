@@ -6201,7 +6201,7 @@ def render_search_page(connection, params, errors=None):
 
         cards.append(
             f"""
-            <section id="location-{location['id']}" class="panel{' panel--selected' if is_selected_location else ''} location-card">
+            <section id="location-{location['id']}" class="panel{' panel--selected' if is_selected_location else ''} location-card{' location-card--wide' if location['name'] == 'Laski rovt ZTS' else ''}">
               <div class="location-overview">
                 <div class="location-overview-main">
                   <div class="location-heading">
